@@ -9,7 +9,7 @@ depende_de: []
 relacionados: [TchowStrick:ADR-0020, TchowStrick:E4a-01]
 evidencia: verificado
 branch: feature/migra-client-desktop
-integracao: branch
+integracao: integrado
 validacao: pendente
 atualizado_em: 2026-10-04
 ---
@@ -41,8 +41,16 @@ Decisão e alternativas na [ADR-0020 do TchowStrick](../../../TchowStrick/docs/a
 
 | ID | Item | Status | Integração | Validação |
 |---|---|---|---|---|
-| M0-01 | Copiar código, testes e recursos; `pom.xml` autônomo; wrapper | em-validacao | branch | pendente |
-| M0-02 | Mover documentação do cliente e criar conjunto mínimo de docs | em-validacao | branch | pendente |
+| M0-01 | Copiar código, testes e recursos; `pom.xml` autônomo; wrapper | em-validacao | integrado | pendente |
+| M0-02 | Mover documentação do cliente e criar conjunto mínimo de docs | em-validacao | integrado | pendente |
+
+## Integração (04/10/2026)
+
+| Repositório | Integração |
+|---|---|
+| TchowStrick | PR #63 mesclado pelo responsável em `main` @ `a32e9aa` (remoção do módulo, ADR-0020, M8 apontando M4-04 para cá) |
+| Este repositório | Sem remoto; principal `main` criada localmente a partir de `feature/migra-client-desktop`, com aval do responsável ("tudo mergeado na main… continue com a migração") |
+| Raiz do portfólio e MSSIdentity | Branches `docs/produto-java-desktop-legado` e `docs/m4-04-desktop-legado` enviadas; merge na principal pendente do responsável |
 
 ## Verificações (04/10/2026, Windows 11, Git Bash, JDK 27)
 
@@ -52,13 +60,16 @@ Decisão e alternativas na [ADR-0020 do TchowStrick](../../../TchowStrick/docs/a
 | `./mvnw -q -B -DskipTests -Dspotless.check.skip=true install` | worktree do TchowStrick, branch `feature/client-desktop-legado` (base `b5ff8e1`, com o módulo removido) | Sucesso; `tchow-domain`, `tchow-proto` e `tchow-server` 1.1.0-SNAPSHOT instalados |
 | `./mvnw -B -Dspotless.check.skip=true verify` | este repositório, branch `feature/migra-client-desktop` | `BUILD SUCCESS`; 112 testes, 0 falhas; gate de cobertura atendido; `target/tchowstrick.jar` gerado |
 | Repetição após mesclar a `main` do TchowStrick @ `8b77e84` (PR #62, `IdentityVerifier`) na branch `feature/client-desktop-legado`: `install` lá e `./mvnw -B -Dspotless.check.skip=true clean verify` aqui | ambos | Sucesso; 112 testes, 0 falhas; cobertura atendida |
+| Após o merge do PR #63: TchowStrick `main` @ `a32e9aa`, `./mvnw -B -Dspotless.check.skip=true clean install` (Docker 28.5.1, Testcontainers) | TchowStrick | `BUILD SUCCESS`; domain 80 e server 292 testes, 0 falhas; gates de cobertura atendidos; pasta residual `client-desktop/` (324 arquivos, todos ignorados pelo Git: `target/`, `dependency-reduced-pom.xml`, `.jqwik-database`) removida antes |
+| `./mvnw -B -Dspotless.check.skip=true clean verify` contra os artefatos de `a32e9aa` | este repositório | `BUILD SUCCESS`; 112 testes, 0 falhas; cobertura atendida |
+| `docker build` da imagem do servidor em `a32e9aa` (imagem de teste removida em seguida) | TchowStrick | Sucesso, sem `client-desktop` |
 | `spotless` (apply/check) | ambos | **Não executado:** `google-java-format` 1.24 falha em JDK 27 (`NoSuchMethodError` em `com.sun.tools.javac`) — limitação de ambiente, preexistente; o código Java do cliente não foi alterado |
 
-Não executado: interface gráfica, partida real, servidor oficial e testes de persistência do servidor (Docker).
+Não executado: interface gráfica, partida real e servidor oficial.
 
 ## Validação manual
 
-Pré-requisitos: JDK 21+; checkout do TchowStrick na branch `feature/client-desktop-legado` ao lado deste repositório.
+Pré-requisitos: JDK 21+; checkout do TchowStrick em `main` (a partir de `a32e9aa`) ao lado deste repositório.
 
 Preparação (Git Bash):
 
@@ -78,4 +89,4 @@ Em JDK 27, acrescentar `-Dspotless.check.skip=true` ao `verify` (ver [operação
 | 5 | No TchowStrick: `./mvnw -q -DskipTests package` | Build do reactor com três módulos (`domain`, `proto`, `server`) passa; não há `client-desktop` |
 | 6 | Opcional, no TchowStrick: `docker build -t tchowstrick-server .` | Imagem do servidor builda sem o `client-desktop` |
 
-Resultado: pendente de execução pelo responsável.
+Resultado: pendente de execução pelo responsável. Os cenários 1, 5 e 6 já foram cobertos por execução do agente (acima); os cenários 2 a 4 exigem interface.

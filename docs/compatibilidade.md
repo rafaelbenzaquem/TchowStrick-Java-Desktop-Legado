@@ -18,6 +18,7 @@ Registro da dependência deste cliente em relação ao [TchowStrick](../../Tchow
 |---|---|---|
 | `b5ff8e1` + remoção do módulo (`cfd2466`) | 04/10/2026 | `./mvnw verify` aqui: 112 testes, 0 falhas |
 | `main` @ `8b77e84` (fronteira `IdentityVerifier`, PR #62) mesclada na branch `feature/client-desktop-legado` | 04/10/2026 | `./mvnw clean verify` aqui: 112 testes, 0 falhas; o PR #62 não alterou o `client-desktop` nem APIs usadas por ele |
+| `main` @ `a32e9aa` (PR #63, módulo removido) | 04/10/2026 | `./mvnw clean verify` aqui: 112 testes, 0 falhas |
 
 ## Artefatos consumidos
 
