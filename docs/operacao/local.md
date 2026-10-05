@@ -30,7 +30,7 @@ Comandos a executar na raiz deste repositório, salvo indicação. Builds podem 
 
    Roda os testes do cliente, o gate de cobertura de `br.com.mss.tchow.net.*` (≥ 70% de linhas) e o `spotless:check`, e gera `target/tchowstrick.jar` (jar único com gRPC/Netty).
 
-Limitação conhecida: o `google-java-format` 1.24 usado pelo spotless não roda em JDK 27 (`NoSuchMethodError` em `com.sun.tools.javac`). Nesse JDK, use um JDK 21 para o `verify` ou pule só a checagem de formato com `-Dspotless.check.skip=true`.
+Funciona em JDK 21 e 27: spotless 3.10.3 com google-java-format 1.36.1 (até 04/10/2026, a 1.24 quebrava no JDK 27 e exigia `-Dspotless.check.skip=true`; TchowStrick:BUG-016). No TchowStrick, rode `./mvnw install` completo ou com `-DskipTests`; o spotless do agregador também passa nos dois JDKs.
 
 ## Como rodar o cliente
 

@@ -48,8 +48,9 @@
         <surefire.plugin.version>3.5.2</surefire.plugin.version>
         <shade.plugin.version>3.6.0</shade.plugin.version>
         <exec.plugin.version>3.5.0</exec.plugin.version>
-        <spotless.plugin.version>2.43.0</spotless.plugin.version>
-        <google.java.format.version>1.24.0</google.java.format.version>
+        <spotless.plugin.version>3.10.3</spotless.plugin.version>
+        <!-- 1.36.1: roda no JDK 21 e no 27 com saída idêntica à 1.24 (TchowStrick:BUG-016). -->
+        <google.java.format.version>1.36.1</google.java.format.version>
         <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
 
         <!-- Gate de cobertura (linhas) em br.com.mss.tchow.net.*. -->
