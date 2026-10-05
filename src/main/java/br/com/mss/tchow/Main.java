@@ -1,12 +1,18 @@
 package br.com.mss.tchow;
 
 import br.com.mss.tchow.app.AccountSessionStore;
+import br.com.mss.tchow.app.IdentityAccountException;
+import br.com.mss.tchow.app.IdentityAccountGateway;
+import br.com.mss.tchow.app.IdentityClientGateway;
+import br.com.mss.tchow.app.IdentityGameCredentials;
 import br.com.mss.tchow.app.LocalAccountSessionStore;
+import br.com.mss.tchow.app.LocalIdentitySessionStore;
 import br.com.mss.tchow.app.LocalProfileStore;
 import br.com.mss.tchow.app.LocalServerChoiceStore;
 import br.com.mss.tchow.app.LocalSessionTokenStore;
 import br.com.mss.tchow.app.LocalWalletStore;
 import br.com.mss.tchow.app.MatchController;
+import br.com.mss.tchow.app.MssAccountFlow;
 import br.com.mss.tchow.app.PlayerProfile;
 import br.com.mss.tchow.app.ProfileStore;
 import br.com.mss.tchow.app.ServerChoiceStore;
@@ -17,12 +23,14 @@ import br.com.mss.tchow.app.WalletStore;
 import br.com.mss.tchow.domain.PlayerColor;
 import br.com.mss.tchow.domain.ai.AiLevel;
 import br.com.mss.tchow.domain.history.GameReducer;
+import br.com.mss.tchow.net.AccountCredentials;
 import br.com.mss.tchow.net.Dtos.GameSnapshotDto;
 import br.com.mss.tchow.net.Dtos.PlayerStatsDto;
 import br.com.mss.tchow.net.GameTransport;
 import br.com.mss.tchow.net.LocalTransport;
 import br.com.mss.tchow.net.SaveMaterial;
 import br.com.mss.tchow.net.TransportException;
+import br.com.mss.tchow.net.config.IdentityTarget;
 import br.com.mss.tchow.net.config.ServerDirectory;
 import br.com.mss.tchow.net.config.ServerPreset;
 import br.com.mss.tchow.net.grpc.GrpcAccountClient;
@@ -40,6 +48,8 @@ import br.com.mss.tchow.ui.ConfirmContactCodeDialog;
 import br.com.mss.tchow.ui.CreateOfficialAccountDialog;
 import br.com.mss.tchow.ui.HostDialog;
 import br.com.mss.tchow.ui.JoinDialog;
+import br.com.mss.tchow.ui.MssAccountDialog;
+import br.com.mss.tchow.ui.MssSignInDialog;
 import br.com.mss.tchow.ui.PlayersPanel;
 import br.com.mss.tchow.ui.ProfileDialog;
 import br.com.mss.tchow.ui.ReplayViewer;
@@ -92,6 +102,14 @@ public final class Main extends JFrame {
     private final GrpcAccountClient accountClient = new GrpcAccountClient();
     private PlayerProfile profile;
 
+    /**
+     * Conta MSS do servidor ativo (M1), criada sob demanda para o destino de identidade do {@link
+     * #activeServer}; {@code null} se o servidor não usa identidade MSS.
+     */
+    private IdentityAccountGateway identityGateway;
+
+    private IdentityTarget identityGatewayTarget;
+
     private SplashPanel splash;
     private GameTransport transport;
     private MatchController controller;
@@ -141,6 +159,7 @@ public final class Main extends JFrame {
                         if (transport != null) {
                             transport.disconnect();
                         }
+                        closeIdentityGateway();
                     }
                 });
         setSize(480, 340);
@@ -247,6 +266,9 @@ public final class Main extends JFrame {
      * duplica a checagem. {@code false} = o jogador desistiu de criar a conta.
      */
     private boolean ensureOfficialAccount() {
+        if (!embeddedServer && activeServer.usesMssIdentity()) {
+            return ensureMssAccount();
+        }
         if (embeddedServer || !activeServer.official()) {
             return true;
         }
@@ -275,10 +297,234 @@ public final class Main extends JFrame {
         return currentAccountSession().map(StoredAccountSession::token).orElse("");
     }
 
+    /**
+     * Identificador online do jogador. Com identidade MSS, o {@code account_id} da sessão (o
+     * servidor usa o {@code account_id} como {@code guest_id} quando a conta não tem histórico
+     * legado — decisão de 04/10/2026); senão a sessão oficial antiga ou o perfil local.
+     */
     private String networkGuestId() {
+        if (!embeddedServer && activeServer.usesMssIdentity()) {
+            IdentityAccountGateway gateway = identityGateway();
+            if (gateway != null) {
+                Optional<IdentityAccountGateway.AccountStatus> account = gateway.currentAccount();
+                if (account.isPresent()) {
+                    return account.get().accountId();
+                }
+            }
+        }
         return currentAccountSession()
                 .map(StoredAccountSession::guestId)
                 .orElse(profile.id().value());
+    }
+
+    /**
+     * Credencial das chamadas de jogo: acesso de jogo da identidade MSS (renovado a cada chamada,
+     * se preciso) quando o servidor usa identidade; senão a sessão oficial antiga ou nenhuma.
+     */
+    private AccountCredentials accountCredentials() {
+        if (!embeddedServer && activeServer.usesMssIdentity()) {
+            IdentityAccountGateway gateway = identityGateway();
+            return gateway == null
+                    ? AccountCredentials.none()
+                    : new IdentityGameCredentials(gateway);
+        }
+        return AccountCredentials.fixed(accountToken());
+    }
+
+    // --- conta MSS (M1, MSSIdentity M4-04) ---------------------------------
+
+    /** Gateway do destino de identidade do servidor ativo; troca junto com o servidor. */
+    private IdentityAccountGateway identityGateway() {
+        IdentityTarget target = activeServer.identity();
+        if (target == null) {
+            closeIdentityGateway();
+            return null;
+        }
+        if (identityGateway != null && target.equals(identityGatewayTarget)) {
+            return identityGateway;
+        }
+        closeIdentityGateway();
+        try {
+            identityGateway =
+                    new IdentityClientGateway(target, new LocalIdentitySessionStore(target));
+            identityGatewayTarget = target;
+        } catch (IllegalArgumentException e) {
+            warn(e.getMessage());
+            return null;
+        }
+        return identityGateway;
+    }
+
+    private void closeIdentityGateway() {
+        if (identityGateway != null) {
+            try {
+                identityGateway.close();
+            } catch (RuntimeException ignored) {
+                // fechar o canal é best-effort
+            }
+            identityGateway = null;
+            identityGatewayTarget = null;
+        }
+    }
+
+    private MssAccountFlow mssFlow(IdentityAccountGateway gateway) {
+        return new MssAccountFlow(
+                gateway,
+                new MssAccountFlow.Prompts() {
+                    @Override
+                    public MssAccountFlow.SignInChoice askSignIn() {
+                        MssSignInDialog.Result r =
+                                MssSignInDialog.show(
+                                        Main.this,
+                                        activeServer.name(),
+                                        profile == null ? "" : profile.displayName());
+                        return r == null
+                                ? null
+                                : new MssAccountFlow.SignInChoice(
+                                        r.newAccount(), r.nick(), r.email());
+                    }
+
+                    @Override
+                    public String askEmail(String title) {
+                        return JOptionPane.showInputDialog(
+                                Main.this,
+                                "E-mail da conta MSS:",
+                                title,
+                                JOptionPane.PLAIN_MESSAGE);
+                    }
+
+                    @Override
+                    public String askCode(
+                            String email, IdentityAccountGateway.Purpose purpose, Runnable resend) {
+                        var dialog = new ConfirmContactCodeDialog(Main.this, email, resend);
+                        dialog.setTitle(
+                                purpose == IdentityAccountGateway.Purpose.RECOVER_ACCOUNT
+                                        ? "Entrar na conta MSS"
+                                        : "Confirmar e-mail");
+                        ConfirmContactCodeDialog.Result result = dialog.showDialog();
+                        return result == null ? null : result.code();
+                    }
+
+                    @Override
+                    public boolean confirm(String message) {
+                        return JOptionPane.showConfirmDialog(
+                                        Main.this, message, "Conta MSS", JOptionPane.YES_NO_OPTION)
+                                == JOptionPane.YES_OPTION;
+                    }
+
+                    @Override
+                    public void info(String message) {
+                        statusLabel.setText(message);
+                        JOptionPane.showMessageDialog(
+                                Main.this, message, "Conta MSS", JOptionPane.INFORMATION_MESSAGE);
+                    }
+
+                    @Override
+                    public void warn(String message) {
+                        Main.this.warn(message);
+                    }
+                });
+    }
+
+    /** Portão de rede com identidade MSS: exige sessão guardada; o resto o servidor decide. */
+    private boolean ensureMssAccount() {
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway == null) {
+            return false;
+        }
+        Optional<IdentityAccountGateway.AccountStatus> account = gateway.currentAccount();
+        if (account.isPresent()) {
+            if (account.get().state() == IdentityAccountGateway.AccountState.RESTRICTED) {
+                statusLabel.setText(
+                        MssAccountFlow.stateMessage(
+                                IdentityAccountGateway.AccountState.RESTRICTED));
+            }
+            return true;
+        }
+        return mssFlow(gateway).signIn().isPresent();
+    }
+
+    /** "Jogador → Conta MSS…": entrar, ou estado/perfil/sair se já entrou. */
+    private void mssAccountFlow() {
+        if (transport != null) {
+            warn("Saia da partida antes de alterar sua conta.");
+            return;
+        }
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway == null) {
+            warn("Este servidor não usa conta MSS.");
+            return;
+        }
+        MssAccountFlow flow = mssFlow(gateway);
+        Optional<IdentityAccountGateway.AccountStatus> status = flow.refreshStatus();
+        if (status.isEmpty()) {
+            flow.signIn();
+            return;
+        }
+        Optional<IdentityAccountGateway.Profile> accountProfile = flow.profile();
+        MssAccountDialog.Result result =
+                new MssAccountDialog(
+                                this,
+                                new MssAccountDialog.View(
+                                        activeServer.name(),
+                                        MssAccountFlow.stateMessage(status.get().state()),
+                                        accountProfile
+                                                .map(IdentityAccountGateway.Profile::nick)
+                                                .orElse(""),
+                                        accountProfile
+                                                .map(IdentityAccountGateway.Profile::avatarId)
+                                                .orElse(""),
+                                        accountProfile
+                                                .map(IdentityAccountGateway.Profile::maskedContact)
+                                                .orElse(""),
+                                        accountProfile
+                                                .map(
+                                                        IdentityAccountGateway.Profile
+                                                                ::contactVerified)
+                                                .orElse(false),
+                                        accountProfile.isPresent()))
+                        .showDialog();
+        if (result == null) {
+            return;
+        }
+        switch (result.action()) {
+            case SAVE_PROFILE ->
+                    flow.updateProfile(result.nick(), result.avatarId())
+                            .ifPresent(p -> statusLabel.setText("Perfil MSS salvo: " + p.nick()));
+            case CONFIRM_EMAIL -> flow.confirmEmail();
+            case SIGN_OUT_THIS_DEVICE -> flow.signOut(false);
+            case SIGN_OUT_ALL_DEVICES -> {
+                if (JOptionPane.showConfirmDialog(
+                                this,
+                                "Encerrar a conta MSS em todos os dispositivos?",
+                                "Sair de todos",
+                                JOptionPane.YES_NO_OPTION,
+                                JOptionPane.WARNING_MESSAGE)
+                        == JOptionPane.YES_OPTION) {
+                    flow.signOut(true);
+                }
+            }
+        }
+    }
+
+    /** Executa {@code action} com o fluxo MSS se o servidor usa identidade; {@code false} senão. */
+    private boolean withMssFlow(java.util.function.Consumer<MssAccountFlow> action) {
+        if (embeddedServer || !activeServer.usesMssIdentity()) {
+            return false;
+        }
+        if (transport != null) {
+            warn("Saia da partida antes de alterar sua conta.");
+            return true;
+        }
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway != null) {
+            try {
+                action.accept(mssFlow(gateway));
+            } catch (IdentityAccountException e) {
+                warn(e.getMessage());
+            }
+        }
+        return true;
     }
 
     private boolean createOfficialAccountFlow() {
@@ -343,6 +589,9 @@ public final class Main extends JFrame {
 
     /** Menu "Jogador → Confirmar contato…" — sob pedido, fora do fluxo de criar/entrar. */
     private void confirmContactFlow() {
+        if (withMssFlow(MssAccountFlow::confirmEmail)) {
+            return;
+        }
         if (!ServerDirectory.isTrustedIdentityEndpoint(activeServer)) {
             warn("Selecione o servidor oficial para acessar sua conta.");
             return;
@@ -377,7 +626,7 @@ public final class Main extends JFrame {
         }
         try {
             PlayerStatsDto stats =
-                    new GrpcDiscovery(accountToken())
+                    new GrpcDiscovery(accountCredentials())
                             .getMyStats(
                                     activeServer.host(),
                                     activeServer.port(),
@@ -449,6 +698,14 @@ public final class Main extends JFrame {
      * a sessão de dispositivo). Cancelar não é erro — só não confirma agora.
      */
     private void accountChallengeFlow(GrpcAccountClient.Purpose purpose) {
+        if (activeServer.usesMssIdentity() && !embeddedServer) {
+            if (purpose == GrpcAccountClient.Purpose.RECOVER_ACCOUNT) {
+                withMssFlow(MssAccountFlow::recover);
+            } else {
+                warn("Excluir a conta MSS ainda não está disponível no desktop.");
+            }
+            return;
+        }
         if (transport != null) {
             warn("Saia da partida antes de alterar sua conta.");
             return;
@@ -594,12 +851,16 @@ public final class Main extends JFrame {
                 e -> {
                     if (transport != null) {
                         warn("Saia da partida antes de acessar outra sessão.");
+                    } else if (!embeddedServer && activeServer.usesMssIdentity()) {
+                        mssAccountFlow();
                     } else if (!ServerDirectory.isTrustedIdentityEndpoint(activeServer)) {
                         warn("Selecione o servidor oficial para acessar sua conta.");
                     } else if (ensureProfile()) {
                         createOfficialAccountFlow();
                     }
                 });
+        JMenuItem mssAccount = new JMenuItem("Conta MSS…");
+        mssAccount.addActionListener(e -> mssAccountFlow());
         JMenuItem confirmContact = new JMenuItem("Confirmar contato…");
         confirmContact.addActionListener(e -> confirmContactFlow());
         JMenuItem stats = new JMenuItem("Estatísticas…");
@@ -609,6 +870,7 @@ public final class Main extends JFrame {
         player.add(switchProfile);
         player.addSeparator();
         player.add(accessAccount);
+        player.add(mssAccount);
         player.add(confirmContact);
         player.add(stats);
         JMenuItem recover = new JMenuItem("Recuperar conta…");
@@ -675,7 +937,11 @@ public final class Main extends JFrame {
     /** Servidor que "Criar partida"/"Entrar em partida" vão sugerir agora ([E4.5-06]). */
     private JPanel buildServerBar() {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-        bar.add(new JLabel("Servidor: " + activeServer.name()));
+        bar.add(
+                new JLabel(
+                        "Servidor: "
+                                + activeServer.name()
+                                + (activeServer.usesMssIdentity() ? " (conta MSS)" : "")));
         JButton button = new JButton("Trocar servidor…");
         button.addActionListener(e -> switchServerFlow());
         bar.add(button);
@@ -740,7 +1006,7 @@ public final class Main extends JFrame {
                     launchOptions.discoveryEnabled());
         }
         MatchId matchId =
-                new GrpcDiscovery(accountToken())
+                new GrpcDiscovery(accountCredentials())
                         .createMatch(
                                 activeServer.host(),
                                 activeServer.port(),
@@ -762,7 +1028,7 @@ public final class Main extends JFrame {
                 choice.password(),
                 previousToken,
                 activeServer.tls(),
-                accountToken());
+                accountCredentials());
     }
 
     private static LocalTransport localVsAi(HostDialog.Result choice, String defaultNick) {
@@ -838,7 +1104,7 @@ public final class Main extends JFrame {
                             choice.password(),
                             previousToken,
                             activeServer.tls(),
-                            accountToken());
+                            accountCredentials());
             this.currentAiLevel = null; // partida em rede
             startMatch(t);
         } catch (TransportException e) {

@@ -1,6 +1,7 @@
 package br.com.mss.tchow.net.grpc;
 
 import br.com.mss.tchow.domain.PlayerColor;
+import br.com.mss.tchow.net.AccountCredentials;
 import br.com.mss.tchow.net.Dtos.MatchInfoDto;
 import br.com.mss.tchow.net.Dtos.PlayerStatsDto;
 import br.com.mss.tchow.net.MatchDiscovery;
@@ -31,24 +32,31 @@ import org.slf4j.LoggerFactory;
  */
 public final class GrpcDiscovery implements MatchDiscovery {
 
-    private final String accountToken;
+    private final AccountCredentials credentials;
 
     public GrpcDiscovery() {
-        this("");
+        this(AccountCredentials.none());
     }
 
     public GrpcDiscovery(String accountToken) {
-        this.accountToken = accountToken;
+        this(AccountCredentials.fixed(accountToken));
+    }
+
+    /**
+     * {@code credentials} é consultada a cada chamada autenticada (M1): o acesso de jogo da
+     * identidade MSS é renovado antes de expirar; um {@code UNAUTHENTICATED} do servidor gera no
+     * máximo uma nova tentativa com credencial renovada.
+     */
+    public GrpcDiscovery(AccountCredentials credentials) {
+        this.credentials = credentials;
     }
 
     private GameServiceGrpc.GameServiceBlockingStub authenticatedStub(
-            ManagedChannel channel, boolean tls) {
-        if (!accountToken.isBlank() && !tls)
-            throw new IllegalArgumentException("conta oficial exige TLS");
-        io.grpc.Metadata headers = new io.grpc.Metadata();
-        CallIdentity.attach(headers, accountToken);
+            ManagedChannel channel, String host, boolean tls) throws TransportException {
+        String violation = CredentialRetry.plaintextViolation(credentials, host, tls);
+        if (violation != null) throw new TransportException(violation);
         return GameServiceGrpc.newBlockingStub(channel)
-                .withInterceptors(io.grpc.stub.MetadataUtils.newAttachHeadersInterceptor(headers));
+                .withInterceptors(new GameCallCredentials(credentials, () -> null));
     }
 
     private static final Logger logger = LoggerFactory.getLogger(GrpcDiscovery.class);
@@ -131,11 +139,14 @@ public final class GrpcDiscovery implements MatchDiscovery {
             throws TransportException {
         ManagedChannel channel = channel(host, port, tls);
         try {
+            var stub = authenticatedStub(channel, host, tls);
             String id =
-                    authenticatedStub(channel, tls)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .createMatch(request)
-                            .getMatchId();
+                    CredentialRetry.call(
+                            credentials,
+                            () ->
+                                    stub.withDeadlineAfter(5, TimeUnit.SECONDS)
+                                            .createMatch(request)
+                                            .getMatchId());
             return new MatchId(id);
         } catch (StatusRuntimeException e) {
             String message =
@@ -191,11 +202,12 @@ public final class GrpcDiscovery implements MatchDiscovery {
             throws TransportException {
         ManagedChannel channel = channel(host, port, tls);
         try {
+            var stub = authenticatedStub(channel, host, tls);
+            var request = GetMyStatsRequest.newBuilder().setGuestId(guestId).build();
             return ProtoMapper.playerStats(
-                    authenticatedStub(channel, tls)
-                            .withDeadlineAfter(5, TimeUnit.SECONDS)
-                            .getMyStats(
-                                    GetMyStatsRequest.newBuilder().setGuestId(guestId).build()));
+                    CredentialRetry.call(
+                            credentials,
+                            () -> stub.withDeadlineAfter(5, TimeUnit.SECONDS).getMyStats(request)));
         } catch (StatusRuntimeException e) {
             String message =
                     GrpcErrors.describe(

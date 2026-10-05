@@ -1,6 +1,7 @@
 package br.com.mss.tchow.net.grpc;
 
 import br.com.mss.tchow.domain.PlayerColor;
+import br.com.mss.tchow.net.AccountCredentials;
 import br.com.mss.tchow.net.Dtos.GameSnapshotDto;
 import br.com.mss.tchow.net.Dtos.MoveDto;
 import br.com.mss.tchow.net.GameEvent;
@@ -10,6 +11,7 @@ import br.com.mss.tchow.net.TransportException;
 import br.com.mss.tchow.net.grpc.proto.ChatMessageProto;
 import br.com.mss.tchow.net.grpc.proto.GameEventProto;
 import br.com.mss.tchow.net.grpc.proto.GameServiceGrpc;
+import br.com.mss.tchow.net.grpc.proto.GetMyStatsRequest;
 import br.com.mss.tchow.net.grpc.proto.JoinRequest;
 import br.com.mss.tchow.net.grpc.proto.JoinResponse;
 import br.com.mss.tchow.net.grpc.proto.RematchRequest;
@@ -27,10 +29,13 @@ import io.grpc.TlsChannelCredentials;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.MetadataUtils;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.SwingUtilities;
@@ -56,12 +61,27 @@ public final class GrpcClientTransport implements GameTransport {
     private final String sessionToken;
     private final MatchId matchId;
     private final boolean tls;
+    private final AccountCredentials accountCredentials;
     private final ManagedChannel channel;
     private final GameServiceGrpc.GameServiceStub asyncStub;
     private final GameServiceGrpc.GameServiceBlockingStub blockingStub;
     private final List<GameEventListener> listeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Renovação periódica do acesso da identidade MSS enquanto a partida está aberta: o servidor
+     * revalida o stream {@code Join} a cada evento e, quando o acesso de 10 min vence, usa a
+     * credencial mais recente da mesma conta recebida em qualquer RPC unário (TchowStrick M8). Um
+     * {@code GetMyStats} periódico entrega essa credencial mesmo com o jogador ocioso.
+     *
+     * <p>A biblioteca reusa o acesso em cache até 1 min antes de vencer; com período de 1 min há
+     * sempre uma chamada nessa janela final, que leva ao servidor um acesso novo antes do
+     * vencimento do anterior (um período maior reenviaria o mesmo token e o stream cairia).
+     */
+    static final Duration ACCESS_KEEPALIVE = Duration.ofMinutes(1);
+
     private volatile ClientCallStreamObserver<JoinRequest> joinCall;
+    private volatile boolean disconnecting;
+    private volatile ScheduledExecutorService keepalive;
     private volatile String issuedSessionToken = "";
 
     public GrpcClientTransport(
@@ -146,9 +166,42 @@ public final class GrpcClientTransport implements GameTransport {
             boolean tls,
             String accountToken)
             throws TransportException {
-        if (!accountToken.isBlank() && !tls) {
-            throw new TransportException("conta oficial exige TLS");
+        this(
+                host,
+                port,
+                nick,
+                guestId,
+                color,
+                matchId,
+                password,
+                sessionToken,
+                tls,
+                AccountCredentials.fixed(accountToken));
+    }
+
+    /**
+     * @param accountCredentials consultada a cada chamada (M1): com a identidade MSS, o acesso de
+     *     jogo é renovado antes de expirar, inclusive durante partidas longas; um {@code
+     *     UNAUTHENTICATED} gera no máximo uma nova tentativa com credencial renovada. Texto claro
+     *     só é aceito com credencial para {@code localhost}.
+     */
+    public GrpcClientTransport(
+            String host,
+            int port,
+            String nick,
+            String guestId,
+            PlayerColor color,
+            MatchId matchId,
+            String password,
+            String sessionToken,
+            boolean tls,
+            AccountCredentials accountCredentials)
+            throws TransportException {
+        String violation = CredentialRetry.plaintextViolation(accountCredentials, host, tls);
+        if (violation != null) {
+            throw new TransportException(violation);
         }
+        this.accountCredentials = accountCredentials;
         this.host = host;
         this.port = port;
         this.color = color;
@@ -170,7 +223,7 @@ public final class GrpcClientTransport implements GameTransport {
         var routing = MetadataUtils.newAttachHeadersInterceptor(headers);
         var credentials =
                 new GameCallCredentials(
-                        accountToken,
+                        accountCredentials,
                         () ->
                                 issuedSessionToken.isBlank()
                                         ? this.sessionToken
@@ -182,6 +235,32 @@ public final class GrpcClientTransport implements GameTransport {
 
     @Override
     public GameSnapshotDto connect() throws TransportException {
+        try {
+            try {
+                return joinOnce();
+            } catch (ExecutionException e) {
+                if (!CredentialRetry.shouldRetry(accountCredentials, e.getCause())) {
+                    throw e;
+                }
+                logger.info(
+                        "credencial recusada ao entrar em {}:{}; renovando uma vez", host, port);
+                return joinOnce();
+            }
+        } catch (ExecutionException e) {
+            String message = describe(e.getCause());
+            logger.warn("falha ao conectar em {}:{}: {}", host, port, message);
+            throw new TransportException(message, e.getCause());
+        } catch (TimeoutException e) {
+            logger.warn("tempo esgotado ao conectar em {}:{}", host, port);
+            throw new TransportException("tempo esgotado ao conectar", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new TransportException("conexão interrompida", e);
+        }
+    }
+
+    private GameSnapshotDto joinOnce()
+            throws ExecutionException, TimeoutException, InterruptedException {
         CompletableFuture<GameSnapshotDto> firstSnapshot = new CompletableFuture<>();
 
         JoinRequest request =
@@ -217,6 +296,18 @@ public final class GrpcClientTransport implements GameTransport {
 
                     @Override
                     public void onError(Throwable t) {
+                        if (disconnecting) {
+                            logger.debug(
+                                    "stream da partida em {}:{} encerrado pelo cliente",
+                                    host,
+                                    port);
+                        } else if (firstSnapshot.isDone()) {
+                            logger.warn(
+                                    "stream da partida em {}:{} encerrado com erro: {}",
+                                    host,
+                                    port,
+                                    describe(t));
+                        }
                         firstSnapshot.completeExceptionally(t);
                     }
 
@@ -226,28 +317,60 @@ public final class GrpcClientTransport implements GameTransport {
                     }
                 });
 
+        GameSnapshotDto snapshot = firstSnapshot.get(10, TimeUnit.SECONDS);
+        logger.info("conectado a {}:{} como {} ({})", host, port, nick, color);
+        startAccessKeepalive();
+        return snapshot;
+    }
+
+    /** Só com credencial renovável (identidade MSS); sessão antiga e LAN não precisam. */
+    private synchronized void startAccessKeepalive() {
+        if (keepalive != null
+                || accountCredentials.isEmpty()
+                || !accountCredentials.renewAfterRejection()) {
+            return;
+        }
+        ScheduledExecutorService executor =
+                Executors.newSingleThreadScheduledExecutor(
+                        r -> {
+                            Thread t = new Thread(r, "tchow-acesso-identidade");
+                            t.setDaemon(true);
+                            return t;
+                        });
+        long period = ACCESS_KEEPALIVE.toSeconds();
+        executor.scheduleWithFixedDelay(
+                this::refreshStreamAccess, period, period, TimeUnit.SECONDS);
+        keepalive = executor;
+    }
+
+    void refreshStreamAccess() {
         try {
-            GameSnapshotDto snapshot = firstSnapshot.get(10, TimeUnit.SECONDS);
-            logger.info("conectado a {}:{} como {} ({})", host, port, nick, color);
-            return snapshot;
-        } catch (ExecutionException e) {
-            String message = describe(e.getCause());
-            logger.warn("falha ao conectar em {}:{}: {}", host, port, message);
-            throw new TransportException(message, e.getCause());
-        } catch (TimeoutException e) {
-            logger.warn("tempo esgotado ao conectar em {}:{}", host, port);
-            throw new TransportException("tempo esgotado ao conectar", e);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new TransportException("conexão interrompida", e);
+            var request = GetMyStatsRequest.newBuilder().setGuestId(guestId).build();
+            CredentialRetry.call(
+                    accountCredentials,
+                    () -> blockingStub.withDeadlineAfter(5, TimeUnit.SECONDS).getMyStats(request));
+        } catch (RuntimeException e) {
+            // Sem derrubar a partida: se o acesso não puder ser renovado, o stream cai sozinho.
+            logger.warn(
+                    "não consegui renovar o acesso da partida em {}:{}: {}",
+                    host,
+                    port,
+                    describe(e));
+        }
+    }
+
+    private synchronized void stopAccessKeepalive() {
+        if (keepalive != null) {
+            keepalive.shutdownNow();
+            keepalive = null;
         }
     }
 
     @Override
     public void submitMove(MoveDto move) throws TransportException {
         try {
-            blockingStub.submitMove(
-                    SubmitMoveRequest.newBuilder().setMove(ProtoMapper.toProto(move)).build());
+            var request = SubmitMoveRequest.newBuilder().setMove(ProtoMapper.toProto(move)).build();
+            CredentialRetry.run(accountCredentials, () -> blockingStub.submitMove(request));
         } catch (StatusRuntimeException e) {
             if (e.getStatus().getCode() == Status.Code.FAILED_PRECONDITION) {
                 String reason =
@@ -267,14 +390,15 @@ public final class GrpcClientTransport implements GameTransport {
     @Override
     public void sendChat(String text) throws TransportException {
         try {
-            blockingStub.sendChat(
+            var request =
                     SendChatRequest.newBuilder()
                             .setMessage(
                                     ChatMessageProto.newBuilder()
                                             .setColor(ProtoMapper.toProto(color))
                                             .setNick(nick)
                                             .setText(text))
-                            .build());
+                            .build();
+            CredentialRetry.run(accountCredentials, () -> blockingStub.sendChat(request));
         } catch (StatusRuntimeException e) {
             throw new TransportException("falha ao enviar a mensagem", e);
         }
@@ -284,8 +408,9 @@ public final class GrpcClientTransport implements GameTransport {
     public void rematch() throws TransportException {
         // Pedido de revanche: o desfecho (RematchStarted / RematchRejected) vem pelo stream.
         try {
-            blockingStub.rematch(
-                    RematchRequest.newBuilder().setRequester(ProtoMapper.toProto(color)).build());
+            var request =
+                    RematchRequest.newBuilder().setRequester(ProtoMapper.toProto(color)).build();
+            CredentialRetry.run(accountCredentials, () -> blockingStub.rematch(request));
         } catch (StatusRuntimeException e) {
             throw new TransportException("conexão com o servidor perdida", e);
         }
@@ -294,11 +419,12 @@ public final class GrpcClientTransport implements GameTransport {
     @Override
     public void respondRematch(boolean accept) throws TransportException {
         try {
-            blockingStub.respondRematch(
+            var request =
                     br.com.mss.tchow.net.grpc.proto.RespondRematchRequest.newBuilder()
                             .setResponder(ProtoMapper.toProto(color))
                             .setAccept(accept)
-                            .build());
+                            .build();
+            CredentialRetry.run(accountCredentials, () -> blockingStub.respondRematch(request));
         } catch (StatusRuntimeException e) {
             throw new TransportException("conexão com o servidor perdida", e);
         }
@@ -325,10 +451,11 @@ public final class GrpcClientTransport implements GameTransport {
     public void undo() throws TransportException {
         // Sem consentimento: o desfecho chega pelo stream (HistoryChanged / UndoRejected).
         try {
-            blockingStub.requestUndo(
+            var request =
                     br.com.mss.tchow.net.grpc.proto.RequestUndoRequest.newBuilder()
                             .setRequester(ProtoMapper.toProto(color))
-                            .build());
+                            .build();
+            CredentialRetry.run(accountCredentials, () -> blockingStub.requestUndo(request));
         } catch (StatusRuntimeException e) {
             throw new TransportException("conexão com o servidor perdida", e);
         }
@@ -337,6 +464,8 @@ public final class GrpcClientTransport implements GameTransport {
     @Override
     public void disconnect() {
         logger.info("desconectando de {}:{}", host, port);
+        disconnecting = true;
+        stopAccessKeepalive();
         ClientCallStreamObserver<JoinRequest> call = joinCall;
         if (call != null) {
             call.cancel("cliente saiu", null);

@@ -123,7 +123,9 @@ public final class ServerDirectory {
 
     /**
      * DTO só para o Gson — {@code default} é palavra reservada em Java, não dá para usar como nome
-     * de componente de record.
+     * de componente de record. {@code identity} ({@code host:porta}) e {@code identityTls} (padrão
+     * {@code true}) são opcionais (M1 deste repositório): sem {@code identity}, o servidor segue
+     * sem identidade MSS.
      */
     private record ServerPresetJson(
             String name,
@@ -131,9 +133,21 @@ public final class ServerDirectory {
             int port,
             boolean tls,
             @SerializedName("default") boolean isDefault,
-            boolean official) {
+            boolean official,
+            String identity,
+            Boolean identityTls) {
         ServerPreset toPreset() {
-            return new ServerPreset(name, host, port, tls, isDefault, official);
+            IdentityTarget target = null;
+            if (identity != null && !identity.isBlank()) {
+                try {
+                    target =
+                            IdentityTarget.parse(
+                                    identity, identityTls == null || identityTls.booleanValue());
+                } catch (IllegalArgumentException e) {
+                    throw new JsonParseException(e.getMessage(), e);
+                }
+            }
+            return new ServerPreset(name, host, port, tls, isDefault, official, target);
         }
     }
 }
