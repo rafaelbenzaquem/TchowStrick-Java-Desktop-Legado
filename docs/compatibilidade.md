@@ -34,6 +34,20 @@ O `tchow-server` instalado é o jar sombreado do servidor (inclui dependências)
 
 ## Testes que cruzam os repositórios
 
-O cliente de identidade `identity-client-java` (MSSIdentity) entra como dependência no [M1](marcos/M01-identidade-mss.md); registrar aqui coordenadas e versão quando for adotado.
-
 `GrpcTransportTest` e `StandaloneServerTest` deste repositório sobem o servidor do `tchow-server` em processo e exercitam cliente e servidor ponta a ponta. Ao alterar `net`, `net.match` ou `net.grpc` no TchowStrick, reinstale os artefatos e rode `./mvnw verify` aqui.
+
+## Identidade MSS
+
+Adotado no [M1](marcos/M01-identidade-mss.md) (MSSIdentity:M4-04), em 05/10/2026, branch `feature/identidade-mss-desktop`.
+
+| Campo | Valor |
+|---|---|
+| Artefato | `br.com.mss.identity:identity-client-java` |
+| Versão | `1.0-SNAPSHOT` (propriedade `identity.client.version` do [pom.xml](../pom.xml)) |
+| Origem | MSSIdentity, branch `feature/identidade-cliente-java` (worktree `.wt/MSSIdentity-cliente`), instalado no Maven local com `./mvnw install`; HEAD da branch ao verificar: `20f9398`. Publicação definitiva: D2 do MSSIdentity |
+| API usada | só `br.com.mss.identity.client` (`IdentityClient`, `SessionStore`, `Session`, `ContactInput`, `IdentityException`); os stubs relocados em `client.internal.v1` aparecem apenas no teste do adaptador |
+| Dependências transitivas | grpc 1.68.1 e protobuf-java 3.25.5, as mesmas do `tchow-proto` (conferido com `dependency:tree`) |
+| Audiência do acesso de jogo | `tchowstrick` |
+| Testes | `IdentityClientGatewayTest` (adaptador contra serviço falso em processo); demais testes usam fake da porta `IdentityAccountGateway` |
+
+Como é `SNAPSHOT`, o build usa o que estiver instalado no Maven local: instale o `identity-client-java` (no MSSIdentity, `./mvnw install`) antes de buildar este repositório.

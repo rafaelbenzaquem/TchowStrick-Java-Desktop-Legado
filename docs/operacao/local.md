@@ -10,6 +10,7 @@ Comandos a executar na raiz deste repositório, salvo indicação. Builds podem 
 
 - JDK 21+ (o código compila com `release 21`).
 - Checkout do [TchowStrick](../../../TchowStrick/README.md) ao lado deste repositório, na versão indicada em [compatibilidade](../compatibilidade.md).
+- `identity-client-java` do [MSSIdentity](../../../MSSIdentity/README.md) instalado no Maven local (desde o [M1](../marcos/M01-identidade-mss.md); ver [compatibilidade](../compatibilidade.md#identidade-mss)).
 - Maven (ou o wrapper `./mvnw` incluído).
 - Docker **não** é necessário: os testes deste repositório sobem o servidor em memória, no próprio processo.
 
@@ -22,7 +23,14 @@ Comandos a executar na raiz deste repositório, salvo indicação. Builds podem 
    ./mvnw -q install -DskipTests
    ```
 
-2. Neste repositório:
+2. No MSSIdentity (branch que contém o módulo `identity-client-java`), instalar o cliente Java da identidade:
+
+   ```bash
+   cd ../MSSIdentity
+   ./mvnw -q install -DskipTests
+   ```
+
+3. Neste repositório:
 
    ```bash
    ./mvnw clean verify
@@ -74,6 +82,31 @@ java -jar target/tchowstrick.jar --server=localhost:5050
 
 Para o servidor embarcado em rede local, o argumento é `--embedded-server`; `--port=NNNN` e `--no-discovery` controlam porta e descoberta. Rodar em rede confiável, após verificar efeitos de persistência local. O registro da [descrição anterior](../historico/conexao-desktop-anterior.md) preserva o contexto da alteração de interface.
 
+### Conta MSS (identidade local)
+
+Desde o [M1](../marcos/M01-identidade-mss.md), um servidor pode declarar um destino de identidade MSS (`identity` no `servers.json`, ou `--identity=` na linha de comando). Nesse servidor o jogador entra com a conta MSS e as chamadas de jogo levam o acesso de jogo da identidade (audiência `tchowstrick`); nos demais (LAN, embutido, oficial atual) nada muda. Constatado no código; a execução ponta a ponta ainda não foi verificada.
+
+Pré-requisitos (dados sintéticos, só local):
+
+1. Serviço de identidade do MSSIdentity em `localhost:9100` (gRPC sem TLS) com o Mailpit do compose local (UI em http://localhost:8025, onde chegam os códigos), conforme a operação local do [MSSIdentity](../../../MSSIdentity/README.md).
+2. `ServerMain` do TchowStrick em `localhost:5050` aceitando o acesso da identidade (modo `remote` ou `hybrid`, audiência `tchowstrick`), conforme a [operação do TchowStrick](../../../TchowStrick/docs/operacao/local.md).
+
+Executar o cliente (escolha uma forma):
+
+```sh
+# a) lista de servidores de desenvolvimento do repositório (Local com conta MSS + Local sem conta)
+java -Dtchow.servers.file=config/servers-local-identidade.json -jar target/tchowstrick.jar
+
+# b) linha de comando (tem prioridade sobre a escolha salva)
+java -jar target/tchowstrick.jar --server=localhost:5050 --identity=localhost:9100 --identity-plaintext
+```
+
+No PowerShell, cite a propriedade: `java "-Dtchow.servers.file=config/servers-local-identidade.json" -jar target/tchowstrick.jar`. Na forma (a), uma escolha de servidor salva anteriormente prevalece sobre o padrão do arquivo: use **Trocar servidor…** e escolha "Local (conta MSS)".
+
+No cliente: a barra mostra `Servidor: … (conta MSS)`; `Jogador → Conta MSS…` entra ou cria a conta (nick + e-mail → código do Mailpit), mostra o estado (provisória, ativa ou restrita), edita nick/avatar e sai deste dispositivo ou de todos; `Confirmar contato…` e `Recuperar conta…` usam a identidade. Criar ou entrar em partida pede a conta MSS se ainda não houver sessão.
+
+Regras: `--identity=` exige `--server=`; texto claro (`--identity-plaintext` ou `"identityTls": false`) só é aceito para `localhost`/loopback, e credenciais de conta só trafegam em claro para `localhost`. Staging/produção usam TLS (`--identity=host:443` ou `"identity": "host:443"` em um `servers.json`); o catálogo embutido não aponta o oficial para a identidade. A sessão MSS fica nas `Preferences` do usuário (no Windows, registro do usuário), separada por destino de identidade; tokens não são registrados em log.
+
 ## Arquitetura
 
 Projeto Maven único (`tchow-client-desktop`) que consome do TchowStrick `tchow-domain` (regras puras), `tchow-proto` (codegen do `.proto`) e `tchow-server` (`net.match` e o lado servidor de `net.grpc`, usados pela IA em processo e pelo `--embedded-server`). Camadas com dependência só "para dentro" (cada pacote tem um `package-info.java`):
@@ -95,5 +128,6 @@ save (Savegame + SavegameCodec — formato de arquivo, fora do contrato de rede;
 
 - **`save`**: `SavegameCodec` serializa `Savegame` para bytes, robusto a lixo (fuzzing com jazzer).
 - **`net`**: fronteira de transporte — a UI troca só DTOs, nunca Swing. `GameTransport` tem `net.grpc` (rede) e `LocalTransport` (IA em processo).
-- **`net.config`**: catálogo de servidores (`servers.json`).
-- **`ui`** / **`app`**: pintura vetorial do tabuleiro e diálogos / cola transporte ↔ telas, perfil, carteira de desfazer e sessão locais.
+- **`net.config`**: catálogo de servidores (`servers.json`), com destino de identidade MSS opcional (`IdentityTarget`).
+- **`net`/`net.grpc`** (credencial de conta): `AccountCredentials` consultada a cada chamada; `UNAUTHENTICATED` gera uma nova tentativa com credencial renovada.
+- **`ui`** / **`app`**: pintura vetorial do tabuleiro e diálogos / cola transporte ↔ telas, perfil, carteira de desfazer e sessão locais. Conta MSS: porta `IdentityAccountGateway` (adaptador `IdentityClientGateway` sobre o `identity-client-java`), fluxos em `MssAccountFlow`, sessão em `LocalIdentitySessionStore`.

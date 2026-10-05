@@ -10,6 +10,8 @@ Versões anteriores do cliente desktop foram publicadas junto do servidor, no [C
 - `./mvnw verify` falhava no spotless em JDK 27: spotless 3.10.3 e google-java-format 1.36.1, compatíveis com JDK 21 e 27 (TchowStrick:BUG-016).
 
 ### Adicionado
+- Conta MSS por servidor (M1, MSSIdentity:M4-04): servidor com destino de identidade (`identity` no `servers.json` ou `--identity=`/`--identity-plaintext` junto de `--server=`) usa entrar/criar conta com e-mail e código, recuperar, estado da conta, perfil (nick/avatar) e sair deste dispositivo/de todos; as chamadas de jogo levam o acesso de jogo `tchowstrick`, renovado a cada chamada, com uma nova tentativa em `UNAUTHENTICATED`. Sessão local separada por destino de identidade. Servidores sem identidade seguem com o fluxo anterior. Lista de desenvolvimento local em `config/servers-local-identidade.json`.
+- Dependência `br.com.mss.identity:identity-client-java:1.0-SNAPSHOT` (M1).
 - Repositório próprio do cliente desktop Swing, extraído do módulo `client-desktop` do TchowStrick `main` @ `b5ff8e1` sem alteração de código; projeto Maven autônomo que consome `tchow-domain`, `tchow-proto` e `tchow-server` instalados no repositório Maven local (M0; TchowStrick:ADR-0020).
-- Marco M1 (identidade MSS no desktop, MSSIdentity:M4-04) registrado como proposto: as mudanças de autenticação do cliente passam a ser feitas neste repositório (M1).
+- Marco M1 (identidade MSS no desktop, MSSIdentity:M4-04) registrado: as mudanças de autenticação do cliente passam a ser feitas neste repositório (M1).
 - Documentação do cliente: operação local e arquitetura, compatibilidade com o TchowStrick, roteiro histórico `E4d-04` e descrição anterior da conexão, movidos do TchowStrick (M0).

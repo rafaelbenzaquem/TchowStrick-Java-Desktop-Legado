@@ -11,8 +11,8 @@ Cliente em modo legado: os clientes ativos do TchowStrick são os Godot (TchowSt
 
 ## Horizonte
 
-- **Agora:** M0 — validar build e uso do cliente extraído.
-- **Depois:** M1 — identidade MSS no desktop, quando o `identity-client-java` (MSSIdentity M3-01) estiver disponível. Outros candidatos dependem de decisão do responsável (ex.: acompanhar mudanças de contrato do servidor).
+- **Agora:** M0 — validar build e uso do cliente extraído. M1 — identidade MSS no desktop, em andamento na branch `feature/identidade-mss-desktop` (05/10/2026); falta verificar ponta a ponta com identidade e servidor locais.
+- **Depois:** Outros candidatos dependem de decisão do responsável (ex.: acompanhar mudanças de contrato do servidor).
 - **Mais tarde:** decidir aposentadoria ou manutenção mínima do cliente Swing.
 
 ## Pronto para começar (DoR)
