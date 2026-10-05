@@ -1,0 +1,10 @@
+[
+  {
+    "name": "Oficial",
+    "host": "tchowstrick.minashonsoftware.com.br",
+    "port": 443,
+    "tls": true,
+    "default": true,
+    "official": true
+  }
+]

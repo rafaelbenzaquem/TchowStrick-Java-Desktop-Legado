@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.com.mss.tchow</groupId>
+    <artifactId>tchow-client-desktop</artifactId>
+    <version>1.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>TchowStrick Java Desktop (legado)</name>
+    <description>
+        Cliente desktop legado (Swing) do TchowStrick + transporte de rede (gRPC) + formato de
+        save (E3). Extraído do módulo client-desktop do repositório TchowStrick em 04/10/2026
+        (ADR-0020 do TchowStrick). Consome tchow-domain, tchow-proto e tchow-server instalados no
+        repositório Maven local a partir do checkout do TchowStrick.
+    </description>
+
+    <!--
+      Projeto Maven autônomo (sem parent): o que antes vinha do agregador
+      tchowstrick-parent está copiado aqui. domain/proto/server NÃO são código deste
+      repositório — instale-os antes, a partir do TchowStrick:
+        (no TchowStrick)  ./mvnw -q install -DskipTests
+      ${tchow.version} precisa bater com a versão instalada (ver docs/compatibilidade.md).
+    -->
+
+    <properties>
+        <main.class>br.com.mss.tchow.Main</main.class>
+
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Artefatos do servidor TchowStrick (domain/proto/server). -->
+        <tchow.version>1.1.0-SNAPSHOT</tchow.version>
+
+        <junit.version>5.11.4</junit.version>
+        <jqwik.version>1.9.1</jqwik.version>
+        <gson.version>2.11.0</gson.version>
+        <jazzer.version>0.22.1</jazzer.version>
+        <grpc.version>1.68.1</grpc.version>
+
+        <!-- Logging (ADR-0011 do TchowStrick): SLF4J + Logback. -->
+        <slf4j.version>2.0.16</slf4j.version>
+        <logback.version>1.5.8</logback.version>
+
+        <compiler.plugin.version>3.13.0</compiler.plugin.version>
+        <surefire.plugin.version>3.5.2</surefire.plugin.version>
+        <shade.plugin.version>3.6.0</shade.plugin.version>
+        <exec.plugin.version>3.5.0</exec.plugin.version>
+        <spotless.plugin.version>2.43.0</spotless.plugin.version>
+        <google.java.format.version>1.24.0</google.java.format.version>
+        <jacoco.plugin.version>0.8.12</jacoco.plugin.version>
+
+        <!-- Gate de cobertura (linhas) em br.com.mss.tchow.net.*. -->
+        <coverage.net.min>0.70</coverage.net.min>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>br.com.mss.tchow</groupId>
+            <artifactId>tchow-domain</artifactId>
+            <version>${tchow.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>br.com.mss.tchow</groupId>
+            <artifactId>tchow-proto</artifactId>
+            <version>${tchow.version}</version>
+        </dependency>
+        <!-- Vocabulário de rede + lógica autoritativa ([E4a-02]): net.match.MatchService (usado
+             pelo LocalTransport, em processo) e net.grpc.GrpcServerFactory (usado pelo
+             GrpcHostTransport no modo embutido, flag "embedded-server"). -->
+        <dependency>
+            <groupId>br.com.mss.tchow</groupId>
+            <artifactId>tchow-server</artifactId>
+            <version>${tchow.version}</version>
+        </dependency>
+
+        <!-- Runtime gRPC (canal/servidor Netty) — o codegen em si vem do tchow-proto. -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+            <version>${grpc.version}</version>
+        </dependency>
+
+        <!-- Logging (ADR-0011). -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+
+        <!-- Lê o servers.json (ADR-0014, [E4.5-01]). -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${gson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>${jqwik.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Fuzzing do SavegameCodec. Em `mvn test` roda o corpus semente (regressão);
+             fuzzing de verdade: `./mvnw test -Dtest=SavegameCodecFuzzTest -DJAZZER_FUZZ=1`. -->
+        <dependency>
+            <groupId>com.code-intelligence</groupId>
+            <artifactId>jazzer-junit</artifactId>
+            <version>${jazzer.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.junit.jupiter</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.junit.platform</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>tchowstrick</finalName>
+
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${compiler.plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${surefire.plugin.version}</version>
+                    <configuration>
+                        <systemPropertyVariables>
+                            <java.awt.headless>true</java.awt.headless>
+                        </systemPropertyVariables>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <!-- Formatação: google-java-format (AOSP). `./mvnw spotless:apply` formata;
+                 `spotless:check` roda no `verify` e falha o build fora do padrão. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.plugin.version}</version>
+                <configuration>
+                    <java>
+                        <includes>
+                            <include>src/main/java/**/*.java</include>
+                            <include>src/test/java/**/*.java</include>
+                        </includes>
+                        <googleJavaFormat>
+                            <version>${google.java.format.version}</version>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                        <formatAnnotations/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Cobertura: gate de linhas em br.com.mss.tchow.net.* >= 70%. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <includes>
+                                        <include>br.com.mss.tchow.net.*</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>${coverage.net.min}</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Empacota um jar único executável: java -jar target/tchowstrick.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${shade.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                                <!-- gRPC descobre provedores (Netty, name resolvers) via ServiceLoader -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Rodar direto do Maven: ./mvnw exec:java (o jogo) -->
+            <!-- Bancada visual da Fase 2: ./mvnw test-compile exec:java@sandbox -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>${exec.plugin.version}</version>
+                <configuration>
+                    <mainClass>${main.class}</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>sandbox</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>br.com.mss.tchow.sandbox.BoardSandbox</mainClass>
+                            <classpathScope>test</classpathScope>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

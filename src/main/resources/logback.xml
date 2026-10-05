@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging do cliente desktop (ADR-0011). Console (útil em dev, rodando de um
+  terminal) + arquivo com rotação diária numa pasta de dados do usuário — o
+  app é uma janela Swing, a maioria de quem joga não tem console visível.
+
+  Nível: TCHOW_LOG_LEVEL (env var ou -D) > INFO.
+-->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${user.home}/.tchowstrick/logs/client.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${user.home}/.tchowstrick/logs/client-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- TCHOW_LOG_LEVEL só afeta o código do jogo — bibliotecas de terceiro (grpc-java, Netty,
+         que logam via SLF4J também) ficam presas ao nível do root, senão DEBUG/TRACE aqui inunda
+         o log com o funcionamento interno delas. -->
+    <logger name="br.com.mss.tchow" level="${TCHOW_LOG_LEVEL:-INFO}"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

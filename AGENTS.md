@@ -1,0 +1,13 @@
+# Agentes — TchowStrick Java Desktop (legado)
+
+Antes de trabalhar, leia a [fonte canônica de regras comuns MSS](../AGENTS.md). Ela se aplica integralmente a este repositório, inclusive limites de diretório, Git, execução e entregas de feature/fix. Se este produto for clonado isoladamente e a fonte não estiver disponível, registre o bloqueio de alteração e solicite a disponibilização das regras; não procure fora da raiz autorizada.
+
+Leia [índice](docs/README.md) e [compatibilidade](docs/compatibilidade.md) antes de alterar rede, identidade ou dependências. Regras de jogo, contrato protobuf e servidor autoritativo pertencem ao [TchowStrick](../TchowStrick/AGENTS.md): não copie nem edite aqui código de `domain`, `proto` ou `server`; mudanças nesses artefatos são feitas lá, com a branch e as regras daquele repositório. O build exige `./mvnw install` no TchowStrick, que escreve no repositório Maven local do usuário; o cliente pode gravar perfil, carteira e sessão locais ao ser executado. O preset oficial aponta para produção: não enviar credenciais nem criar partidas no oficial sem autorização operacional.
+
+A documentação segue o [padrão MSS](../docs/padroes/documentacao.md): marcos em `docs/marcos/`, status no front matter, bugs em `docs/bugs/` e `CHANGELOG.md` a cada entrega. IDs legados `E*`, M0–M5, `SEG*` e `RM-*` citados nos documentos pertencem ao TchowStrick e não são renumerados. Use os [modelos comuns](../docs/modelos/README.md); retomadas em `docs/historico/retomadas/` somente quando necessárias. Regras escritas não são bloqueios técnicos; os controles e suas limitações estão na fonte comum.
+
+## Fluxo solo vigente
+
+Fluxo aprovado em 30/09/2026, conforme as [regras comuns](../AGENTS.md) e o [padrão MSS](../docs/padroes/documentacao.md). Uma branch por feature utilizável, derivada da principal, reúne especificação, implementação e documentação. O agente pode fazer commits e push normal da branch da tarefa durante o desenvolvimento, sem validação manual prévia ou confirmação por envio. Itens relacionados compartilham a entrega; verificações são proporcionais, reutilizando testes existentes, sem script obrigatório por branch.
+
+A validação manual é solicitada somente quando a feature completa estiver pronta e utilizável; correções ficam na mesma branch enquanto não integrada. Merge na principal, releases e operações em produção exigem aprovação correspondente. Integração e validação são registradas separadamente. Cenários simples e resumo ficam no documento existente; roteiro próprio, relato separado e retomada somente quando necessários. Registros históricos preservam as regras da época e não impõem o processo substituído.
