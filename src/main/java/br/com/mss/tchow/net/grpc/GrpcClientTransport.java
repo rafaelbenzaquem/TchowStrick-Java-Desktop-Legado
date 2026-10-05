@@ -72,10 +72,15 @@ public final class GrpcClientTransport implements GameTransport {
      * revalida o stream {@code Join} a cada evento e, quando o acesso de 10 min vence, usa a
      * credencial mais recente da mesma conta recebida em qualquer RPC unário (TchowStrick M8). Um
      * {@code GetMyStats} periódico entrega essa credencial mesmo com o jogador ocioso.
+     *
+     * <p>A biblioteca reusa o acesso em cache até 1 min antes de vencer; com período de 1 min há
+     * sempre uma chamada nessa janela final, que leva ao servidor um acesso novo antes do
+     * vencimento do anterior (um período maior reenviaria o mesmo token e o stream cairia).
      */
-    static final Duration ACCESS_KEEPALIVE = Duration.ofMinutes(4);
+    static final Duration ACCESS_KEEPALIVE = Duration.ofMinutes(1);
 
     private volatile ClientCallStreamObserver<JoinRequest> joinCall;
+    private volatile boolean disconnecting;
     private volatile ScheduledExecutorService keepalive;
     private volatile String issuedSessionToken = "";
 
@@ -291,7 +296,12 @@ public final class GrpcClientTransport implements GameTransport {
 
                     @Override
                     public void onError(Throwable t) {
-                        if (firstSnapshot.isDone()) {
+                        if (disconnecting) {
+                            logger.debug(
+                                    "stream da partida em {}:{} encerrado pelo cliente",
+                                    host,
+                                    port);
+                        } else if (firstSnapshot.isDone()) {
                             logger.warn(
                                     "stream da partida em {}:{} encerrado com erro: {}",
                                     host,
@@ -454,6 +464,7 @@ public final class GrpcClientTransport implements GameTransport {
     @Override
     public void disconnect() {
         logger.info("desconectando de {}:{}", host, port);
+        disconnecting = true;
         stopAccessKeepalive();
         ClientCallStreamObserver<JoinRequest> call = joinCall;
         if (call != null) {
