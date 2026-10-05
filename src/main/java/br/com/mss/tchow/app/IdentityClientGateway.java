@@ -21,17 +21,12 @@ import org.slf4j.LoggerFactory;
 /**
  * Adaptador de {@link IdentityAccountGateway} sobre o {@code identity-client-java} (MSSIdentity
  * M3-01). Isola a biblioteca: a UI e os testes só veem a porta.
- *
- * <p>A biblioteca mantém o acesso de jogo em cache por instância, sem operação para descartá-lo;
- * {@link #invalidateGameAccess()} por isso recria o {@link IdentityClient} (mesmo destino e mesmo
- * store, sessão preservada), o que força um acesso novo na próxima chamada.
  */
 public final class IdentityClientGateway implements IdentityAccountGateway {
 
     private static final Logger logger = LoggerFactory.getLogger(IdentityClientGateway.class);
 
-    private final Supplier<IdentityClient> factory;
-    private IdentityClient client;
+    private final IdentityClient client;
 
     /** Produção/desenvolvimento: canal próprio para {@code target}, sessão em {@code store}. */
     public IdentityClientGateway(IdentityTarget target, IdentitySessionStore store) {
@@ -57,11 +52,10 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
 
     /** Testes: fábrica arbitrária (ex.: canal em processo). */
     IdentityClientGateway(Supplier<IdentityClient> factory) {
-        this.factory = factory;
         this.client = factory.get();
     }
 
-    private synchronized IdentityClient client() {
+    private IdentityClient client() {
         return client;
     }
 
@@ -123,10 +117,8 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
     }
 
     @Override
-    public synchronized void invalidateGameAccess() {
-        IdentityClient previous = client;
-        client = factory.get();
-        previous.close();
+    public void invalidateGameAccess() {
+        client.invalidateGameAccess(GAME_AUDIENCE);
     }
 
     @Override
@@ -139,7 +131,7 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         client.close();
     }
 
