@@ -51,6 +51,7 @@ Decisão e alternativas na [ADR-0020 do TchowStrick](../../../TchowStrick/docs/a
 | Comparação byte a byte dos 81 arquivos copiados contra `git show b5ff8e1:client-desktop/<arquivo>` | raiz do portfólio | 0 diferenças |
 | `./mvnw -q -B -DskipTests -Dspotless.check.skip=true install` | worktree do TchowStrick, branch `feature/client-desktop-legado` (base `b5ff8e1`, com o módulo removido) | Sucesso; `tchow-domain`, `tchow-proto` e `tchow-server` 1.1.0-SNAPSHOT instalados |
 | `./mvnw -B -Dspotless.check.skip=true verify` | este repositório, branch `feature/migra-client-desktop` | `BUILD SUCCESS`; 112 testes, 0 falhas; gate de cobertura atendido; `target/tchowstrick.jar` gerado |
+| Repetição após mesclar a `main` do TchowStrick @ `8b77e84` (PR #62, `IdentityVerifier`) na branch `feature/client-desktop-legado`: `install` lá e `./mvnw -B -Dspotless.check.skip=true clean verify` aqui | ambos | Sucesso; 112 testes, 0 falhas; cobertura atendida |
 | `spotless` (apply/check) | ambos | **Não executado:** `google-java-format` 1.24 falha em JDK 27 (`NoSuchMethodError` em `com.sun.tools.javac`) — limitação de ambiente, preexistente; o código Java do cliente não foi alterado |
 
 Não executado: interface gráfica, partida real, servidor oficial e testes de persistência do servidor (Docker).

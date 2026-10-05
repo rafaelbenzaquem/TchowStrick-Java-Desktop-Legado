@@ -12,6 +12,13 @@ Registro da dependência deste cliente em relação ao [TchowStrick](../../Tchow
 | Decisão | [TchowStrick:ADR-0020](../../TchowStrick/docs/adr/0020-cliente-desktop-em-repositorio-legado.md) |
 | Conferência | 82 arquivos versionados na origem: 81 copiados com conteúdo idêntico (verificado por comparação byte a byte em 04/10/2026) e o `pom.xml` refeito como projeto autônomo |
 
+## Servidor validado
+
+| Revisão do TchowStrick instalada | Data | Resultado |
+|---|---|---|
+| `b5ff8e1` + remoção do módulo (`cfd2466`) | 04/10/2026 | `./mvnw verify` aqui: 112 testes, 0 falhas |
+| `main` @ `8b77e84` (fronteira `IdentityVerifier`, PR #62) mesclada na branch `feature/client-desktop-legado` | 04/10/2026 | `./mvnw clean verify` aqui: 112 testes, 0 falhas; o PR #62 não alterou o `client-desktop` nem APIs usadas por ele |
+
 ## Artefatos consumidos
 
 | Artefato | Uso no cliente |
@@ -25,5 +32,7 @@ Versão: propriedade `tchow.version` do [pom.xml](../pom.xml), hoje `1.1.0-SNAPS
 O `tchow-server` instalado é o jar sombreado do servidor (inclui dependências); o cliente usa só as classes acima. O contrato de rede segue o [protobuf original](../../TchowStrick/proto/src/main/proto/); mudanças incompatíveis lá exigem rebuild e teste deste cliente.
 
 ## Testes que cruzam os repositórios
+
+O cliente de identidade `identity-client-java` (MSSIdentity) entra como dependência no [M1](marcos/M01-identidade-mss.md); registrar aqui coordenadas e versão quando for adotado.
 
 `GrpcTransportTest` e `StandaloneServerTest` deste repositório sobem o servidor do `tchow-server` em processo e exercitam cliente e servidor ponta a ponta. Ao alterar `net`, `net.match` ou `net.grpc` no TchowStrick, reinstale os artefatos e rode `./mvnw verify` aqui.

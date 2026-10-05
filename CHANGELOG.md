@@ -8,4 +8,5 @@ Versões anteriores do cliente desktop foram publicadas junto do servidor, no [C
 
 ### Adicionado
 - Repositório próprio do cliente desktop Swing, extraído do módulo `client-desktop` do TchowStrick `main` @ `b5ff8e1` sem alteração de código; projeto Maven autônomo que consome `tchow-domain`, `tchow-proto` e `tchow-server` instalados no repositório Maven local (M0; TchowStrick:ADR-0020).
+- Marco M1 (identidade MSS no desktop, MSSIdentity:M4-04) registrado como proposto: as mudanças de autenticação do cliente passam a ser feitas neste repositório (M1).
 - Documentação do cliente: operação local e arquitetura, compatibilidade com o TchowStrick, roteiro histórico `E4d-04` e descrição anterior da conexão, movidos do TchowStrick (M0).

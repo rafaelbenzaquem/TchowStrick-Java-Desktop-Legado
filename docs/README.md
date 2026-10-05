@@ -23,4 +23,5 @@ Decisões de arquitetura, contratos (SEG-01/02, SEG-03/OPS-01) e histórico de i
 | `TchowStrick/docs/historico/conexao-desktop-anterior.md` | [historico/](historico/conexao-desktop-anterior.md) | idem |
 | Seções do cliente em `TchowStrick/docs/operacao/local.md` | [operacao/local.md](operacao/local.md) | Servidor continua lá |
 | IDs `E*`, `M0`–`M7`, `SEG-*`, `RM-*`, `ADR-0001`–`ADR-0020` | Mantidos | Pertencem ao TchowStrick; citar como `TchowStrick:ID` quando ambíguo |
+| MSSIdentity:M4-04 (`client-desktop` com `identity-client-java`) | [M1](marcos/M01-identidade-mss.md) | Status continua no M4 do MSSIdentity |
 | `M0` deste repositório | [Extração do TchowStrick](marcos/M00-extracao-do-tchowstrick.md) | Numeração própria a partir de 04/10/2026 |
