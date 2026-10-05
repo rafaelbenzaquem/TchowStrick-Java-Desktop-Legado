@@ -11,6 +11,7 @@ import br.com.mss.tchow.net.TransportException;
 import br.com.mss.tchow.net.grpc.proto.ChatMessageProto;
 import br.com.mss.tchow.net.grpc.proto.GameEventProto;
 import br.com.mss.tchow.net.grpc.proto.GameServiceGrpc;
+import br.com.mss.tchow.net.grpc.proto.GetMyStatsRequest;
 import br.com.mss.tchow.net.grpc.proto.JoinRequest;
 import br.com.mss.tchow.net.grpc.proto.JoinResponse;
 import br.com.mss.tchow.net.grpc.proto.RematchRequest;
@@ -28,10 +29,13 @@ import io.grpc.TlsChannelCredentials;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientResponseObserver;
 import io.grpc.stub.MetadataUtils;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.swing.SwingUtilities;
@@ -63,7 +67,16 @@ public final class GrpcClientTransport implements GameTransport {
     private final GameServiceGrpc.GameServiceBlockingStub blockingStub;
     private final List<GameEventListener> listeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Renovação periódica do acesso da identidade MSS enquanto a partida está aberta: o servidor
+     * revalida o stream {@code Join} a cada evento e, quando o acesso de 10 min vence, usa a
+     * credencial mais recente da mesma conta recebida em qualquer RPC unário (TchowStrick M8). Um
+     * {@code GetMyStats} periódico entrega essa credencial mesmo com o jogador ocioso.
+     */
+    static final Duration ACCESS_KEEPALIVE = Duration.ofMinutes(4);
+
     private volatile ClientCallStreamObserver<JoinRequest> joinCall;
+    private volatile ScheduledExecutorService keepalive;
     private volatile String issuedSessionToken = "";
 
     public GrpcClientTransport(
@@ -296,7 +309,51 @@ public final class GrpcClientTransport implements GameTransport {
 
         GameSnapshotDto snapshot = firstSnapshot.get(10, TimeUnit.SECONDS);
         logger.info("conectado a {}:{} como {} ({})", host, port, nick, color);
+        startAccessKeepalive();
         return snapshot;
+    }
+
+    /** Só com credencial renovável (identidade MSS); sessão antiga e LAN não precisam. */
+    private synchronized void startAccessKeepalive() {
+        if (keepalive != null
+                || accountCredentials.isEmpty()
+                || !accountCredentials.renewAfterRejection()) {
+            return;
+        }
+        ScheduledExecutorService executor =
+                Executors.newSingleThreadScheduledExecutor(
+                        r -> {
+                            Thread t = new Thread(r, "tchow-acesso-identidade");
+                            t.setDaemon(true);
+                            return t;
+                        });
+        long period = ACCESS_KEEPALIVE.toSeconds();
+        executor.scheduleWithFixedDelay(
+                this::refreshStreamAccess, period, period, TimeUnit.SECONDS);
+        keepalive = executor;
+    }
+
+    void refreshStreamAccess() {
+        try {
+            var request = GetMyStatsRequest.newBuilder().setGuestId(guestId).build();
+            CredentialRetry.call(
+                    accountCredentials,
+                    () -> blockingStub.withDeadlineAfter(5, TimeUnit.SECONDS).getMyStats(request));
+        } catch (RuntimeException e) {
+            // Sem derrubar a partida: se o acesso não puder ser renovado, o stream cai sozinho.
+            logger.warn(
+                    "não consegui renovar o acesso da partida em {}:{}: {}",
+                    host,
+                    port,
+                    describe(e));
+        }
+    }
+
+    private synchronized void stopAccessKeepalive() {
+        if (keepalive != null) {
+            keepalive.shutdownNow();
+            keepalive = null;
+        }
     }
 
     @Override
@@ -397,6 +454,7 @@ public final class GrpcClientTransport implements GameTransport {
     @Override
     public void disconnect() {
         logger.info("desconectando de {}:{}", host, port);
+        stopAccessKeepalive();
         ClientCallStreamObserver<JoinRequest> call = joinCall;
         if (call != null) {
             call.cancel("cliente saiu", null);
