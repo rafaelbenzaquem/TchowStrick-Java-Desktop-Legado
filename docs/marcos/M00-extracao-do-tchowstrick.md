@@ -63,7 +63,8 @@ Decisão e alternativas na [ADR-0020 do TchowStrick](../../../TchowStrick/docs/a
 | Após o merge do PR #63: TchowStrick `main` @ `a32e9aa`, `./mvnw -B -Dspotless.check.skip=true clean install` (Docker 28.5.1, Testcontainers) | TchowStrick | `BUILD SUCCESS`; domain 80 e server 292 testes, 0 falhas; gates de cobertura atendidos; pasta residual `client-desktop/` (324 arquivos, todos ignorados pelo Git: `target/`, `dependency-reduced-pom.xml`, `.jqwik-database`) removida antes |
 | `./mvnw -B -Dspotless.check.skip=true clean verify` contra os artefatos de `a32e9aa` | este repositório | `BUILD SUCCESS`; 112 testes, 0 falhas; cobertura atendida |
 | `docker build` da imagem do servidor em `a32e9aa` (imagem de teste removida em seguida) | TchowStrick | Sucesso, sem `client-desktop` |
-| `spotless` (apply/check) | ambos | **Não executado:** `google-java-format` 1.24 falha em JDK 27 (`NoSuchMethodError` em `com.sun.tools.javac`) — limitação de ambiente, preexistente; o código Java do cliente não foi alterado |
+| Branch `fix/spotless-jdk27` (spotless 3.10.3 / gjf 1.36.1): `./mvnw -B clean verify` com `spotless:check` | este repositório, JDK 27 e JDK 21 | `BUILD SUCCESS` nos dois; 112 testes, 0 falhas; formato OK |
+| `spotless` (apply/check), antes da correção | ambos | **Não executado:** `google-java-format` 1.24 falha em JDK 27 (`NoSuchMethodError` em `com.sun.tools.javac`) — limitação de ambiente, preexistente; o código Java do cliente não foi alterado |
 
 Não executado: interface gráfica, partida real e servidor oficial.
 
@@ -78,7 +79,7 @@ cd TchowStrick && ./mvnw -q install -DskipTests && cd ..
 cd TchowStrick-Java-Desktop-Legado && ./mvnw clean verify
 ```
 
-Em JDK 27, acrescentar `-Dspotless.check.skip=true` ao `verify` (ver [operação local](../operacao/local.md#build)).
+Desde a correção do TchowStrick:BUG-016 (spotless 3.10.3 / google-java-format 1.36.1, aqui e lá), o `verify` roda o `spotless:check` também em JDK 27, sem flags extras.
 
 | # | Cenário | Resultado esperado |
 |---|---|---|
