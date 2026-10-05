@@ -11,6 +11,29 @@ package br.com.mss.tchow.net.config;
  * ou outro preset também chamado "Oficial" não bastam pra exigir conta oficial — só o servidor
  * marcado {@code true} no JSON exige. Presets criados pelo próprio cliente (descoberta em LAN,
  * "Endereço personalizado…", `--server=`) nunca são oficiais.
+ *
+ * <p>{@code identity} (MSSIdentity M4-04, M1 deste repositório) é opcional: quando presente, o
+ * jogador entra com a conta MSS nesse destino e o {@code authorization} das chamadas de jogo leva o
+ * acesso de jogo da identidade (audiência {@code tchowstrick}); o fluxo de conta oficial antigo não
+ * é usado nesse servidor. {@code null} mantém o comportamento anterior.
  */
 public record ServerPreset(
-        String name, String host, int port, boolean tls, boolean isDefault, boolean official) {}
+        String name,
+        String host,
+        int port,
+        boolean tls,
+        boolean isDefault,
+        boolean official,
+        IdentityTarget identity) {
+
+    /** Servidor sem identidade MSS (comportamento anterior ao M1). */
+    public ServerPreset(
+            String name, String host, int port, boolean tls, boolean isDefault, boolean official) {
+        this(name, host, port, tls, isDefault, official, null);
+    }
+
+    /** {@code true} se este servidor usa a identidade MSS para as credenciais de jogo. */
+    public boolean usesMssIdentity() {
+        return identity != null;
+    }
+}

@@ -1,6 +1,7 @@
 package br.com.mss.tchow;
 
 import br.com.mss.tchow.net.NetworkConfig;
+import br.com.mss.tchow.net.config.IdentityTarget;
 import java.util.List;
 
 /**
@@ -15,6 +16,9 @@ import java.util.List;
  *       diálogos de Criar partida/Entrar.
  *   <li>{@code --no-discovery} — não responde a buscas de servidor na rede local quando hospedando
  *       embutido ([E4.5-03]).
+ *   <li>{@code --identity=host:porta} (M1, MSSIdentity M4-04) — usa a identidade MSS nesse destino
+ *       para o servidor de {@code --server=} (obrigatório junto). TLS por padrão; {@code
+ *       --identity-plaintext} usa texto claro, aceito só para {@code localhost}/loopback.
  * </ul>
  *
  * <p>{@code --embedded-server} e {@code --server=} são mutuamente exclusivos: o primeiro diz "esta
@@ -25,7 +29,18 @@ public record LaunchOptions(
         int embeddedPort,
         String remoteHost,
         int remotePort,
-        boolean discoveryEnabled) {
+        boolean discoveryEnabled,
+        IdentityTarget identity) {
+
+    /** Sem identidade MSS (comportamento anterior ao M1). */
+    public LaunchOptions(
+            boolean embeddedServer,
+            int embeddedPort,
+            String remoteHost,
+            int remotePort,
+            boolean discoveryEnabled) {
+        this(embeddedServer, embeddedPort, remoteHost, remotePort, discoveryEnabled, null);
+    }
 
     public static LaunchOptions defaults() {
         return new LaunchOptions(false, NetworkConfig.DEFAULT_PORT, null, 0, true);
@@ -38,6 +53,8 @@ public record LaunchOptions(
         List<String> asList = List.of(args);
         boolean embeddedServer = asList.contains("--embedded-server");
         boolean discoveryEnabled = !asList.contains("--no-discovery");
+        boolean identityPlaintext = asList.contains("--identity-plaintext");
+        String identityRaw = null;
         int embeddedPort = NetworkConfig.DEFAULT_PORT;
         String remoteHost = null;
         int remotePort = 0;
@@ -57,6 +74,8 @@ public record LaunchOptions(
                 }
                 remoteHost = value.substring(0, separator);
                 remotePort = parsePort(value.substring(separator + 1), arg);
+            } else if (arg.startsWith("--identity=")) {
+                identityRaw = arg.substring("--identity=".length());
             }
         }
 
@@ -66,8 +85,26 @@ public record LaunchOptions(
                             + " \"esta máquina é o servidor\", o segundo aponta para outra.");
         }
 
+        IdentityTarget identity = null;
+        if (identityRaw != null) {
+            if (remoteHost == null) {
+                throw new IllegalArgumentException(
+                        "--identity= exige --server=host:porta (a identidade vale para o servidor"
+                                + " indicado na linha de comando).");
+            }
+            identity = IdentityTarget.parse(identityRaw, !identityPlaintext);
+            if (!identity.plaintextAllowed()) {
+                throw new IllegalArgumentException(
+                        "--identity-plaintext só é aceito para localhost; use TLS para \""
+                                + identity.authority()
+                                + "\".");
+            }
+        } else if (identityPlaintext) {
+            throw new IllegalArgumentException("--identity-plaintext exige --identity=host:porta.");
+        }
+
         return new LaunchOptions(
-                embeddedServer, embeddedPort, remoteHost, remotePort, discoveryEnabled);
+                embeddedServer, embeddedPort, remoteHost, remotePort, discoveryEnabled, identity);
     }
 
     private static int parsePort(String raw, String originalArg) {

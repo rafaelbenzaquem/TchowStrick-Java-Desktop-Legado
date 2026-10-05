@@ -26,13 +26,15 @@ final class ConnectionResolver {
         if (options.remoteHost() != null) {
             // --server=host:porta é sempre em claro (uso LAN/dev, não passa pelo Caddy) e nunca
             // oficial (quem sabe digitar host:porta de cor não é o fluxo de conta guiado).
+            // --identity= (M1) acrescenta a identidade MSS a esse servidor; sem ela, nada muda.
             return new ServerPreset(
-                    "linha de comando",
+                    options.identity() == null ? "linha de comando" : "linha de comando (MSS)",
                     options.remoteHost(),
                     options.remotePort(),
                     false,
                     true,
-                    false);
+                    false,
+                    options.identity());
         }
         if (savedChoice != null) {
             Optional<ServerPreset> remembered = savedChoice.lastChoice();
