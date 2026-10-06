@@ -15,9 +15,20 @@ class ServerDirectoryTest {
 
     @Test
     void credentialsTrustOnlyBundledOfficialTlsEndpoint() throws IOException {
-        assertTrue(
+        // Desde 05/10/2026 o oficial embutido usa a identidade MSS: o fluxo de conta antigo não
+        // confia em nenhum destino (nem no oficial, nem num registro antigo dele sem identidade).
+        org.junit.jupiter.api.Assertions.assertFalse(
                 ServerDirectory.isTrustedIdentityEndpoint(
                         ServerDirectory.loadBundled().defaultPreset().orElseThrow()));
+        org.junit.jupiter.api.Assertions.assertFalse(
+                ServerDirectory.isTrustedIdentityEndpoint(
+                        new ServerPreset(
+                                "Oficial",
+                                "tchowstrick.minashonsoftware.com.br",
+                                443,
+                                true,
+                                true,
+                                true)));
         org.junit.jupiter.api.Assertions.assertFalse(
                 ServerDirectory.isTrustedIdentityEndpoint(
                         new ServerPreset("Oficial", "192.168.0.5", 443, true, true, true)));
@@ -57,7 +68,13 @@ class ServerDirectoryTest {
 
         assertEquals(
                 new ServerPreset(
-                        "Oficial", "tchowstrick.minashonsoftware.com.br", 443, true, true, true),
+                        "Oficial",
+                        "tchowstrick.minashonsoftware.com.br",
+                        443,
+                        true,
+                        true,
+                        true,
+                        new IdentityTarget("identity.minashonsoftware.com.br", 443, true)),
                 preset);
     }
 
@@ -162,7 +179,13 @@ class ServerDirectoryTest {
 
         assertEquals(
                 new ServerPreset(
-                        "Oficial", "tchowstrick.minashonsoftware.com.br", 443, true, true, true),
+                        "Oficial",
+                        "tchowstrick.minashonsoftware.com.br",
+                        443,
+                        true,
+                        true,
+                        true,
+                        new IdentityTarget("identity.minashonsoftware.com.br", 443, true)),
                 bundled.defaultPreset().orElseThrow());
     }
 }
