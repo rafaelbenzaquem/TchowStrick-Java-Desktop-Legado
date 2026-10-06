@@ -24,7 +24,20 @@ public interface IdentitySessionStore {
     }
 
     /** Lembra o nick da conta da sessão guardada (apagado junto com a sessão). */
-    default void rememberNick(String accountId, String nick) {}
+    default void rememberNick(String accountId, String nick) {
+        rememberProfile(accountId, nick, null);
+    }
+
+    /**
+     * Lembra nick e contato mascarado (ex.: {@code an***@***.com}, como a identidade devolve) da
+     * conta da sessão guardada, só para exibição local; apagados junto com a sessão.
+     */
+    default void rememberProfile(String accountId, String nick, String maskedContact) {}
+
+    /** Contato mascarado lembrado para {@code accountId}; vazio se não houver. */
+    default Optional<String> maskedContactFor(String accountId) {
+        return Optional.empty();
+    }
 
     /**
      * Sessão guardada. {@code state} é o nome do {@code AccountState} ({@code PROVISIONAL}, {@code

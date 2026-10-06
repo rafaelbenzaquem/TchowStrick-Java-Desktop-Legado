@@ -143,7 +143,86 @@ public final class DataProfile implements AutoCloseable {
         }
     }
 
-    private static Preferences nodeFor(Preferences appRoot, String name) {
+    /**
+     * {@code true} se outra janela (outro processo, ou outra instância nesta JVM) segura a trava do
+     * perfil {@code name}. Sem arquivo de trava, ninguém o usa.
+     */
+    static boolean lockedElsewhere(Path dataDir, String name) {
+        Path file = dataDir.resolve(PROFILES_NODE).resolve(name + ".lock");
+        if (!Files.isRegularFile(file)) {
+            return false;
+        }
+        try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+            FileLock probe = channel.tryLock();
+            if (probe == null) {
+                return true;
+            }
+            probe.release();
+            return false;
+        } catch (OverlappingFileLockException e) {
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Perfis locais conhecidos neste usuário: o padrão, os que têm dados nas Preferences e os que
+     * já criaram arquivo de trava. Ordem: padrão primeiro, depois alfabética.
+     */
+    static java.util.List<String> knownNames(Path dataDir, Preferences appRoot) {
+        java.util.SortedSet<String> names = new java.util.TreeSet<>();
+        try {
+            if (appRoot.nodeExists(PROFILES_NODE)) {
+                names.addAll(java.util.List.of(appRoot.node(PROFILES_NODE).childrenNames()));
+            }
+        } catch (java.util.prefs.BackingStoreException e) {
+            // segue com o que houver no diretório
+        }
+        Path lockDir = dataDir.resolve(PROFILES_NODE);
+        if (Files.isDirectory(lockDir)) {
+            try (var files = Files.list(lockDir)) {
+                files.map(p -> p.getFileName().toString())
+                        .filter(n -> n.endsWith(".lock"))
+                        .map(n -> n.substring(0, n.length() - ".lock".length()))
+                        .filter(n -> VALID_NAME.matcher(n).matches())
+                        .forEach(names::add);
+            } catch (IOException e) {
+                // segue com o que houver nas Preferences
+            }
+        }
+        names.remove(DEFAULT_NAME);
+        names.remove(PROFILES_NODE);
+        java.util.List<String> result = new java.util.ArrayList<>();
+        result.add(DEFAULT_NAME);
+        result.addAll(names);
+        return result;
+    }
+
+    /** Apaga um perfil local inteiro (não o padrão), já travado por quem chama. */
+    static void deleteData(Path dataDir, Preferences appRoot, String name) {
+        if (DEFAULT_NAME.equals(name)) {
+            throw new DataProfileException("O perfil local padrão não pode ser removido.");
+        }
+        try {
+            if (appRoot.nodeExists(PROFILES_NODE) && appRoot.node(PROFILES_NODE).nodeExists(name)) {
+                appRoot.node(PROFILES_NODE).node(name).removeNode();
+                appRoot.flush();
+            }
+        } catch (java.util.prefs.BackingStoreException e) {
+            throw new IllegalStateException("não foi possível remover o perfil local " + name, e);
+        }
+    }
+
+    static void deleteLockFile(Path dataDir, String name) {
+        try {
+            Files.deleteIfExists(dataDir.resolve(PROFILES_NODE).resolve(name + ".lock"));
+        } catch (IOException e) {
+            // outra janela abriu o perfil entre a remoção e aqui; o arquivo vazio não faz mal
+        }
+    }
+
+    static Preferences nodeFor(Preferences appRoot, String name) {
         return DEFAULT_NAME.equals(name) ? appRoot : appRoot.node(PROFILES_NODE).node(name);
     }
 

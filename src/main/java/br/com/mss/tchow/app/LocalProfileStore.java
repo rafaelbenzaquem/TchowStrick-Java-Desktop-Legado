@@ -87,6 +87,25 @@ public final class LocalProfileStore implements ProfileStore {
         flush();
     }
 
+    /**
+     * Apaga o perfil {@code id} deste dispositivo ("Gerenciar contas"); se era o ativo, fica sem
+     * perfil ativo. Ids desconhecidos são ignorados.
+     */
+    public synchronized void remove(PlayerId id) {
+        try {
+            if (!root.nodeExists(id.value())) {
+                return;
+            }
+            root.node(id.value()).removeNode();
+        } catch (BackingStoreException e) {
+            throw new IllegalStateException("não foi possível remover o perfil local", e);
+        }
+        if (id.value().equals(root.get(KEY_ACTIVE, null))) {
+            root.remove(KEY_ACTIVE);
+        }
+        flush();
+    }
+
     private List<String> childNodeNames() {
         try {
             return new ArrayList<>(List.of(root.childrenNames()));
