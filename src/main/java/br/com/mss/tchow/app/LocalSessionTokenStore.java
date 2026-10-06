@@ -23,6 +23,14 @@ public final class LocalSessionTokenStore implements SessionTokenStore {
         this(Preferences.userNodeForPackage(LocalSessionTokenStore.class).node("session-tokens"));
     }
 
+    /**
+     * Tokens de assento do perfil local de dados {@code profile}: duas janelas na mesma partida não
+     * enxergam o assento uma da outra como "seu" (Retornar).
+     */
+    public LocalSessionTokenStore(DataProfile profile) {
+        this(profile.node("session-tokens"));
+    }
+
     LocalSessionTokenStore(Preferences root) {
         this.root = root;
     }

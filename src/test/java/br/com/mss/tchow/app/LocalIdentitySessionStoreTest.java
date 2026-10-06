@@ -103,4 +103,20 @@ class LocalIdentitySessionStoreTest {
         choices.remember(new ServerPreset("LAN", "192.168.0.5", 5050, false, false, false));
         assertEquals(null, choices.lastChoice().orElseThrow().identity());
     }
+
+    @Test
+    void lembraONickSoParaAContaDaSessaoEApagaJuntoComEla() {
+        var store = new LocalIdentitySessionStore(root, LOCAL);
+        store.save(new StoredIdentitySession("tok", "acc-1", 1L, "ACTIVE"));
+
+        store.rememberNick("acc-1", " Ana ");
+
+        assertEquals("Ana", store.nickFor("acc-1").orElseThrow());
+        assertTrue(store.nickFor("acc-2").isEmpty());
+        assertTrue(store.nickFor(null).isEmpty());
+        store.clear();
+        assertTrue(store.nickFor("acc-1").isEmpty());
+        store.rememberNick("acc-1", "  ");
+        assertTrue(store.nickFor("acc-1").isEmpty());
+    }
 }

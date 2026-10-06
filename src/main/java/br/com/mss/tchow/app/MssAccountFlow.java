@@ -189,6 +189,17 @@ public final class MssAccountFlow {
         }
     }
 
+    /**
+     * "Sair/Trocar de conta": sai da conta atual só neste dispositivo (perfil local) e abre o
+     * entrar/criar para outra conta. Vazio se o jogador desistir (fica sem conta).
+     */
+    public Optional<AccountStatus> switchAccount() {
+        if (gateway.currentAccount().isPresent()) {
+            signOut(false);
+        }
+        return signIn();
+    }
+
     private Optional<AccountStatus> emailCodeFlow(String title, Purpose purpose) {
         String email = prompts.askEmail(title);
         if (isBlank(email)) {

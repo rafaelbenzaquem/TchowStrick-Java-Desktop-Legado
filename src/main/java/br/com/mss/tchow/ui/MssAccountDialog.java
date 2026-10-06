@@ -19,6 +19,7 @@ public final class MssAccountDialog extends JDialog {
     public enum Action {
         SAVE_PROFILE,
         CONFIRM_EMAIL,
+        SWITCH_ACCOUNT,
         SIGN_OUT_THIS_DEVICE,
         SIGN_OUT_ALL_DEVICES
     }
@@ -90,6 +91,8 @@ public final class MssAccountDialog extends JDialog {
                                         avatarField.getText())));
         JButton confirm = new JButton("Confirmar e-mail…");
         confirm.addActionListener(e -> finish(new Result(Action.CONFIRM_EMAIL, null, null)));
+        JButton switchAccount = new JButton("Trocar de conta…");
+        switchAccount.addActionListener(e -> finish(new Result(Action.SWITCH_ACCOUNT, null, null)));
         JButton signOut = new JButton("Sair deste dispositivo");
         signOut.addActionListener(e -> finish(new Result(Action.SIGN_OUT_THIS_DEVICE, null, null)));
         JButton signOutAll = new JButton("Sair de todos");
@@ -102,6 +105,7 @@ public final class MssAccountDialog extends JDialog {
         buttons.add(save);
         buttons.add(confirm);
         buttons.add(close);
+        buttons.add(switchAccount);
         buttons.add(signOut);
         buttons.add(signOutAll);
 

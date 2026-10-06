@@ -213,4 +213,27 @@ class MssAccountFlowTest {
         assertTrue(MssAccountFlow.stateMessage(AccountState.ACTIVE).contains("ativa"));
         assertTrue(MssAccountFlow.stateMessage(AccountState.RESTRICTED).contains("restrita"));
     }
+
+    @Test
+    void trocarDeContaSaiSoDesteDispositivoEEntraComOutra() {
+        gateway.session =
+                new IdentityAccountGateway.AccountStatus(
+                        "acc-ana", AccountState.ACTIVE, java.time.Instant.now().plusSeconds(3600));
+        prompts.signIn = new MssAccountFlow.SignInChoice(true, "Bia", "bia@example.com");
+        prompts.codes.add("123456");
+
+        var status = flow.switchAccount().orElseThrow();
+
+        assertEquals("acc-bia@example.com", status.accountId());
+        assertTrue(gateway.calls.contains("signOut:false"));
+        assertFalse(gateway.calls.contains("signOut:true"));
+    }
+
+    @Test
+    void trocarDeContaSemSessaoSoAbreOEntrar() {
+        prompts.signIn = null;
+
+        assertTrue(flow.switchAccount().isEmpty());
+        assertFalse(gateway.calls.stream().anyMatch(c -> c.startsWith("signOut")));
+    }
 }

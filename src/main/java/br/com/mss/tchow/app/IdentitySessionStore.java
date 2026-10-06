@@ -16,6 +16,17 @@ public interface IdentitySessionStore {
     void clear();
 
     /**
+     * Nick lembrado para a conta {@code accountId}, só para exibir a conta ativa sem consultar a
+     * identidade; vazio se não houver ou se a sessão guardada for de outra conta.
+     */
+    default Optional<String> nickFor(String accountId) {
+        return Optional.empty();
+    }
+
+    /** Lembra o nick da conta da sessão guardada (apagado junto com a sessão). */
+    default void rememberNick(String accountId, String nick) {}
+
+    /**
      * Sessão guardada. {@code state} é o nome do {@code AccountState} ({@code PROVISIONAL}, {@code
      * ACTIVE}, {@code RESTRICTED}).
      */

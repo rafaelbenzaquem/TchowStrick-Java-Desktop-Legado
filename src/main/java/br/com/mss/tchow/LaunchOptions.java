@@ -1,5 +1,7 @@
 package br.com.mss.tchow;
 
+import br.com.mss.tchow.app.DataProfile;
+import br.com.mss.tchow.app.DataProfileException;
 import br.com.mss.tchow.net.NetworkConfig;
 import br.com.mss.tchow.net.config.IdentityTarget;
 import java.util.List;
@@ -19,6 +21,9 @@ import java.util.List;
  *   <li>{@code --identity=host:porta} (M1, MSSIdentity M4-04) — usa a identidade MSS nesse destino
  *       para o servidor de {@code --server=} (obrigatório junto). TLS por padrão; {@code
  *       --identity-plaintext} usa texto claro, aceito só para {@code localhost}/loopback.
+ *   <li>{@code --perfil=nome} (M1) — abre o perfil local de dados {@code nome} (sessão MSS, tokens
+ *       de assento, perfis de jogador e carteira próprios). Sem a opção, a 1ª janela usa o perfil
+ *       padrão e as seguintes o próximo livre ({@code perfil-2}, …), ver {@link DataProfile}.
  * </ul>
  *
  * <p>{@code --embedded-server} e {@code --server=} são mutuamente exclusivos: o primeiro diz "esta
@@ -30,7 +35,26 @@ public record LaunchOptions(
         String remoteHost,
         int remotePort,
         boolean discoveryEnabled,
-        IdentityTarget identity) {
+        IdentityTarget identity,
+        String dataProfile) {
+
+    /** Perfil local automático ({@code dataProfile = null}). */
+    public LaunchOptions(
+            boolean embeddedServer,
+            int embeddedPort,
+            String remoteHost,
+            int remotePort,
+            boolean discoveryEnabled,
+            IdentityTarget identity) {
+        this(
+                embeddedServer,
+                embeddedPort,
+                remoteHost,
+                remotePort,
+                discoveryEnabled,
+                identity,
+                null);
+    }
 
     /** Sem identidade MSS (comportamento anterior ao M1). */
     public LaunchOptions(
@@ -55,6 +79,7 @@ public record LaunchOptions(
         boolean discoveryEnabled = !asList.contains("--no-discovery");
         boolean identityPlaintext = asList.contains("--identity-plaintext");
         String identityRaw = null;
+        String dataProfile = null;
         int embeddedPort = NetworkConfig.DEFAULT_PORT;
         String remoteHost = null;
         int remotePort = 0;
@@ -76,6 +101,12 @@ public record LaunchOptions(
                 remotePort = parsePort(value.substring(separator + 1), arg);
             } else if (arg.startsWith("--identity=")) {
                 identityRaw = arg.substring("--identity=".length());
+            } else if (arg.startsWith("--perfil=")) {
+                try {
+                    dataProfile = DataProfile.normalize(arg.substring("--perfil=".length()));
+                } catch (DataProfileException e) {
+                    throw new IllegalArgumentException(e.getMessage(), e);
+                }
             }
         }
 
@@ -104,7 +135,13 @@ public record LaunchOptions(
         }
 
         return new LaunchOptions(
-                embeddedServer, embeddedPort, remoteHost, remotePort, discoveryEnabled, identity);
+                embeddedServer,
+                embeddedPort,
+                remoteHost,
+                remotePort,
+                discoveryEnabled,
+                identity,
+                dataProfile);
     }
 
     private static int parsePort(String raw, String originalArg) {

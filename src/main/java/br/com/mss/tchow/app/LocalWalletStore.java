@@ -14,6 +14,11 @@ public final class LocalWalletStore implements WalletStore {
         this(Preferences.userNodeForPackage(LocalWalletStore.class).node("wallets"));
     }
 
+    /** Carteiras do perfil local de dados {@code profile}. */
+    public LocalWalletStore(DataProfile profile) {
+        this(profile.node("wallets"));
+    }
+
     LocalWalletStore(Preferences root) {
         this.root = root;
     }

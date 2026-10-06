@@ -18,6 +18,8 @@ public final class LocalIdentitySessionStore implements IdentitySessionStore {
     private static final String KEY_ACCOUNT_ID = "accountId";
     private static final String KEY_EXPIRES_AT = "expiresAt";
     private static final String KEY_STATE = "state";
+    private static final String KEY_NICK = "nick";
+    private static final String KEY_NICK_ACCOUNT = "nickAccountId";
 
     private final Preferences root;
     private final String nodeName;
@@ -27,6 +29,14 @@ public final class LocalIdentitySessionStore implements IdentitySessionStore {
                 Preferences.userNodeForPackage(LocalIdentitySessionStore.class)
                         .node("mssIdentitySession"),
                 target);
+    }
+
+    /**
+     * Sessão MSS do perfil local de dados {@code profile} para {@code target}: cada janela aberta
+     * tem a sua, e nenhuma é rotacionada por duas janelas ao mesmo tempo (o perfil é travado).
+     */
+    public LocalIdentitySessionStore(DataProfile profile, IdentityTarget target) {
+        this(profile.node("mssIdentitySession"), target);
     }
 
     LocalIdentitySessionStore(Preferences root, IdentityTarget target) {
@@ -78,6 +88,38 @@ public final class LocalIdentitySessionStore implements IdentitySessionStore {
             node.flush();
         } catch (BackingStoreException e) {
             // best-effort: o SO grava sozinho ao sair; não vale abortar a UI por isso
+        }
+    }
+
+    @Override
+    public synchronized Optional<String> nickFor(String accountId) {
+        try {
+            if (accountId == null || !root.nodeExists(nodeName)) {
+                return Optional.empty();
+            }
+        } catch (BackingStoreException e) {
+            return Optional.empty();
+        }
+        Preferences node = root.node(nodeName);
+        String nick = node.get(KEY_NICK, null);
+        if (nick == null || nick.isBlank() || !accountId.equals(node.get(KEY_NICK_ACCOUNT, ""))) {
+            return Optional.empty();
+        }
+        return Optional.of(nick);
+    }
+
+    @Override
+    public synchronized void rememberNick(String accountId, String nick) {
+        if (accountId == null || nick == null || nick.isBlank()) {
+            return;
+        }
+        Preferences node = root.node(nodeName);
+        node.put(KEY_NICK, nick.strip());
+        node.put(KEY_NICK_ACCOUNT, accountId);
+        try {
+            node.flush();
+        } catch (BackingStoreException e) {
+            // best-effort
         }
     }
 
