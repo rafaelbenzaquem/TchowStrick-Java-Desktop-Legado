@@ -61,6 +61,8 @@ import br.com.mss.tchow.ui.ReplayViewer;
 import br.com.mss.tchow.ui.ServerPickerDialog;
 import br.com.mss.tchow.ui.SplashPanel;
 import br.com.mss.tchow.ui.StatsDialog;
+import br.com.mss.tchow.ui.UiSizing;
+import br.com.mss.tchow.ui.WrapLayout;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
@@ -91,7 +93,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -184,8 +185,7 @@ public final class Main extends JFrame {
                         closeIdentityGateway();
                     }
                 });
-        setSize(480, 340);
-        setLocationRelativeTo(null);
+        UiSizing.packWithin(this, null);
     }
 
     public static void main(String[] args) {
@@ -217,7 +217,10 @@ public final class Main extends JFrame {
             System.err.println(e.getMessage());
             if (!GraphicsEnvironment.isHeadless()) {
                 JOptionPane.showMessageDialog(
-                        null, e.getMessage(), "TchowStrick", JOptionPane.ERROR_MESSAGE);
+                        null,
+                        UiSizing.message(e.getMessage()),
+                        "TchowStrick",
+                        JOptionPane.ERROR_MESSAGE);
             }
             System.exit(1);
             return;
@@ -519,12 +522,14 @@ public final class Main extends JFrame {
         int choice =
                 JOptionPane.showOptionDialog(
                         this,
-                        "Esta janela (perfil local "
-                                + dataProfile.displayName()
-                                + ") já está na conta MSS "
-                                + mssAccountLabel()
-                                + ".\nPara jogar com outra conta ao mesmo tempo, abra uma nova"
-                                + " janela: ela usa outro perfil local, com a sua própria conta.",
+                        UiSizing.message(
+                                "Esta janela (perfil local "
+                                        + dataProfile.displayName()
+                                        + ") já está na conta MSS "
+                                        + mssAccountLabel()
+                                        + ".\nPara jogar com outra conta ao mesmo tempo, abra uma"
+                                        + " nova janela: ela usa outro perfil local, com a sua"
+                                        + " própria conta."),
                         "Adicionar conta MSS",
                         JOptionPane.DEFAULT_OPTION,
                         JOptionPane.QUESTION_MESSAGE,
@@ -556,8 +561,9 @@ public final class Main extends JFrame {
         String name =
                 JOptionPane.showInputDialog(
                         this,
-                        "Nome do perfil local da nova janela (vazio = próximo livre, ex.:"
-                                + " perfil-2):",
+                        UiSizing.message(
+                                "Nome do perfil local da nova janela (vazio = próximo livre, ex.:"
+                                        + " perfil-2):"),
                         "Nova janela",
                         JOptionPane.PLAIN_MESSAGE);
         if (name == null) {
@@ -613,13 +619,10 @@ public final class Main extends JFrame {
             warn(blocker.get());
             return;
         }
-        JTextArea text = new JTextArea(service.removalDescription(entry), 0, 48);
-        text.setLineWrap(true);
-        text.setWrapStyleWord(true);
-        text.setEditable(false);
-        text.setOpaque(false);
+        // Rótulo com quebra de linha: o JTextArea com quebra mostrava só a 1ª linha (a altura é
+        // calculada antes de ele ter largura) e em fonte monoespaçada.
         JPanel form = new JPanel(new BorderLayout(0, 8));
-        form.add(text, BorderLayout.CENTER);
+        form.add(UiSizing.wrappedLabel(service.removalDescription(entry)), BorderLayout.CENTER);
         JCheckBox remoteSignOut =
                 new JCheckBox("Sair também no servidor (só este dispositivo)", false);
         if (entry.kind() == LocalAccountsService.Kind.MSS) {
@@ -677,11 +680,12 @@ public final class Main extends JFrame {
         if (gateway.currentAccount().isPresent()
                 && JOptionPane.showConfirmDialog(
                                 this,
-                                "Sair da conta MSS "
-                                        + mssAccountLabel()
-                                        + " nesta janela (perfil local "
-                                        + dataProfile.displayName()
-                                        + ") e entrar com outra?",
+                                UiSizing.message(
+                                        "Sair da conta MSS "
+                                                + mssAccountLabel()
+                                                + " nesta janela (perfil local "
+                                                + dataProfile.displayName()
+                                                + ") e entrar com outra?"),
                                 "Trocar de conta",
                                 JOptionPane.YES_NO_OPTION)
                         != JOptionPane.YES_OPTION) {
@@ -734,7 +738,10 @@ public final class Main extends JFrame {
                     @Override
                     public boolean confirm(String message) {
                         return JOptionPane.showConfirmDialog(
-                                        Main.this, message, "Conta MSS", JOptionPane.YES_NO_OPTION)
+                                        Main.this,
+                                        UiSizing.message(message),
+                                        "Conta MSS",
+                                        JOptionPane.YES_NO_OPTION)
                                 == JOptionPane.YES_OPTION;
                     }
 
@@ -742,7 +749,10 @@ public final class Main extends JFrame {
                     public void info(String message) {
                         statusLabel.setText(message);
                         JOptionPane.showMessageDialog(
-                                Main.this, message, "Conta MSS", JOptionPane.INFORMATION_MESSAGE);
+                                Main.this,
+                                UiSizing.message(message),
+                                "Conta MSS",
+                                JOptionPane.INFORMATION_MESSAGE);
                     }
 
                     @Override
@@ -1083,7 +1093,10 @@ public final class Main extends JFrame {
         if (purpose == GrpcAccountClient.Purpose.DELETE_ACCOUNT
                 && JOptionPane.showConfirmDialog(
                                 this,
-                                "Excluir definitivamente a conta deste contato? As sessões serão revogadas. O perfil local será preservado.",
+                                UiSizing.message(
+                                        "Excluir definitivamente a conta deste contato? As sessões"
+                                                + " serão revogadas. O perfil local será"
+                                                + " preservado."),
                                 "Excluir conta",
                                 JOptionPane.YES_NO_OPTION,
                                 JOptionPane.WARNING_MESSAGE)
@@ -1289,7 +1302,7 @@ public final class Main extends JFrame {
 
     /** Barra da tela inicial: mostra o perfil ativo e deixa criar/trocar. */
     private JPanel buildProfileBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        JPanel bar = new JPanel(new WrapLayout(FlowLayout.LEFT, 8, 4));
         bar.add(
                 new JLabel(
                         (profile == null ? "Perfil: nenhum" : "Perfil: " + profile.displayName())
@@ -1311,7 +1324,7 @@ public final class Main extends JFrame {
 
     /** Servidor que "Criar partida"/"Entrar em partida" vão sugerir agora ([E4.5-06]). */
     private JPanel buildServerBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        JPanel bar = new JPanel(new WrapLayout(FlowLayout.LEFT, 8, 0));
         bar.add(
                 new JLabel(
                         "Servidor: "
@@ -1328,7 +1341,7 @@ public final class Main extends JFrame {
      * que duas janelas abertas ao mesmo tempo fiquem distinguíveis, e permite trocar de conta.
      */
     private JPanel buildMssAccountBar() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        JPanel bar = new JPanel(new WrapLayout(FlowLayout.LEFT, 8, 4));
         IdentityAccountGateway gateway = identityGateway();
         boolean signedIn = gateway != null && gateway.currentAccount().isPresent();
         bar.add(
@@ -1537,7 +1550,7 @@ public final class Main extends JFrame {
         if (Files.exists(path)
                 && JOptionPane.showConfirmDialog(
                                 this,
-                                path.getFileName() + " já existe. Substituir?",
+                                UiSizing.message(path.getFileName() + " já existe. Substituir?"),
                                 "Salvar partida",
                                 JOptionPane.YES_NO_OPTION)
                         != JOptionPane.YES_OPTION) {
@@ -1773,14 +1786,16 @@ public final class Main extends JFrame {
                         onUndoTokens,
                         snapshot);
 
-        JPanel historyButtons = new JPanel();
+        // Status (vez + placar de até 5 jogadores) numa linha própria, com a largura toda; os
+        // botões embaixo quebram linha em janela estreita em vez de cortar o status com "…".
+        JPanel historyButtons = new JPanel(new WrapLayout(FlowLayout.LEFT, 5, 2));
         historyButtons.add(undo);
         historyButtons.add(redo);
         historyButtons.add(tokens);
+        historyButtons.add(rematch);
         JPanel south = new JPanel(new BorderLayout(6, 0));
-        south.add(historyButtons, BorderLayout.WEST);
-        south.add(statusLabel, BorderLayout.CENTER);
-        south.add(rematch, BorderLayout.EAST);
+        south.add(statusLabel, BorderLayout.NORTH);
+        south.add(historyButtons, BorderLayout.CENTER);
 
         disposeSplash();
         getContentPane().removeAll();
@@ -1793,8 +1808,9 @@ public final class Main extends JFrame {
 
         revalidate();
         repaint();
-        pack();
-        setLocationRelativeTo(null);
+        // tabuleiro grande ou tela pequena/escala alta: a janela fica na área útil da tela e o
+        // tabuleiro encolhe para caber (só rola abaixo do tamanho mínimo das células)
+        UiSizing.packWithin(this, null);
     }
 
     private void onLeave() {
@@ -1806,12 +1822,12 @@ public final class Main extends JFrame {
         controller = null;
         currentAiLevel = null;
         showIdle();
-        setSize(480, 340);
-        setLocationRelativeTo(null);
+        UiSizing.packWithin(this, null);
     }
 
     private void warn(String message) {
-        JOptionPane.showMessageDialog(this, message, "TchowStrick", JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(
+                this, UiSizing.message(message), "TchowStrick", JOptionPane.WARNING_MESSAGE);
     }
 
     /** Pergunta ao jogador local se aceita a revanche pedida pelo oponente (E2-07). */
