@@ -40,6 +40,7 @@ import br.com.mss.tchow.net.config.ServerPreset;
 import br.com.mss.tchow.net.grpc.GrpcAccountClient;
 import br.com.mss.tchow.net.grpc.GrpcClientTransport;
 import br.com.mss.tchow.net.grpc.GrpcDiscovery;
+import br.com.mss.tchow.net.grpc.GrpcErrors;
 import br.com.mss.tchow.net.grpc.GrpcHostTransport;
 import br.com.mss.tchow.net.match.MatchId;
 import br.com.mss.tchow.save.SaveMeta;
@@ -762,20 +763,28 @@ public final class Main extends JFrame {
                 });
     }
 
-    /** Portão de rede com identidade MSS: exige sessão guardada; o resto o servidor decide. */
+    /**
+     * Portão de rede com identidade MSS: exige sessão guardada; conta não ativa tem o estado
+     * consultado na identidade (BUG-003) e, se restrita, o jogador pode confirmar o contato antes
+     * de seguir. O resto o servidor decide.
+     */
     private boolean ensureMssAccount() {
         IdentityAccountGateway gateway = identityGateway();
         if (gateway == null) {
             return false;
         }
-        Optional<IdentityAccountGateway.AccountStatus> account = gateway.currentAccount();
-        if (account.isPresent()) {
-            if (account.get().state() == IdentityAccountGateway.AccountState.RESTRICTED) {
-                statusLabel.setText(
-                        MssAccountFlow.stateMessage(
-                                IdentityAccountGateway.AccountState.RESTRICTED));
+        if (gateway.currentAccount().isPresent()) {
+            Optional<IdentityAccountGateway.AccountState> state = currentMssState(gateway);
+            if (state.isPresent()) {
+                if (state.get() == IdentityAccountGateway.AccountState.RESTRICTED) {
+                    return offerConfirmContact(gateway, MssAccountFlow.stateMessage(state.get()));
+                }
+                if (state.get() == IdentityAccountGateway.AccountState.PROVISIONAL) {
+                    statusLabel.setText(MssAccountFlow.stateMessage(state.get()));
+                }
+                return true;
             }
-            return true;
+            // a identidade encerrou a sessão: entrar de novo, abaixo
         }
         if (mssFlow(gateway).signIn().isPresent()) {
             rememberMssNick(gateway);
@@ -790,6 +799,68 @@ public final class Main extends JFrame {
                         + " só aceita jogadores com conta MSS. Entre ou crie a conta em"
                         + " Jogador → Conta MSS… para jogar.");
         return false;
+    }
+
+    /**
+     * Estado da conta MSS para o portão: ACTIVE guardado vale sem rede; senão consulta a
+     * identidade. Falha que não encerra a sessão (identidade fora do ar) fica com o último estado
+     * conhecido — o servidor de jogo decide. Vazio se não houver mais sessão.
+     */
+    private Optional<IdentityAccountGateway.AccountState> currentMssState(
+            IdentityAccountGateway gateway) {
+        Optional<IdentityAccountGateway.AccountStatus> stored = gateway.currentAccount();
+        if (stored.isEmpty()
+                || stored.get().state() == IdentityAccountGateway.AccountState.ACTIVE) {
+            return stored.map(IdentityAccountGateway.AccountStatus::state);
+        }
+        try {
+            return Optional.of(gateway.refreshStatus().state());
+        } catch (IdentityAccountException e) {
+            return gateway.currentAccount().map(IdentityAccountGateway.AccountStatus::state);
+        }
+    }
+
+    /**
+     * Conta restrita: explica e oferece confirmar o contato agora. {@code true} só se a conta ficou
+     * ativa.
+     */
+    private boolean offerConfirmContact(IdentityAccountGateway gateway, String message) {
+        statusLabel.setText(message);
+        if (JOptionPane.showConfirmDialog(
+                        this,
+                        UiSizing.message(message + "\n\nConfirmar o e-mail agora?"),
+                        "Conta MSS restrita",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE)
+                != JOptionPane.YES_OPTION) {
+            return false;
+        }
+        Optional<IdentityAccountGateway.AccountStatus> confirmed = mssFlow(gateway).confirmEmail();
+        if (confirmed.isPresent()) {
+            showIdle();
+        }
+        return confirmed.isPresent()
+                && confirmed.get().state() == IdentityAccountGateway.AccountState.ACTIVE;
+    }
+
+    /**
+     * Aviso de falha de rede. Se o servidor de jogo recusou a conta MSS por contato não confirmado
+     * (o estado guardado já foi atualizado pela credencial), oferece "Confirmar contato".
+     */
+    private void warnNetwork(TransportException e) {
+        if (!embeddedServer
+                && activeServer.usesMssIdentity()
+                && transport == null
+                && GrpcErrors.isContactRestriction(e)) {
+            IdentityAccountGateway gateway = identityGateway();
+            if (gateway != null) {
+                if (offerConfirmContact(gateway, e.getMessage())) {
+                    statusLabel.setText("E-mail confirmado. Tente de novo.");
+                }
+                return;
+            }
+        }
+        warn(e.getMessage());
     }
 
     /** "Jogador → Conta MSS…": entrar, ou estado/perfil/sair se já entrou. */
@@ -1007,7 +1078,7 @@ public final class Main extends JFrame {
                                     activeServer.tls());
             new StatsDialog(this, stats).showDialog();
         } catch (TransportException e) {
-            warn(e.getMessage());
+            warnNetwork(e);
         }
     }
 
@@ -1394,7 +1465,7 @@ public final class Main extends JFrame {
             this.currentAiLevel = choice.ai(); // null em rede
             startMatch(t);
         } catch (TransportException e) {
-            warn(e.getMessage());
+            warnNetwork(e);
         }
     }
 
@@ -1523,7 +1594,7 @@ public final class Main extends JFrame {
             this.currentAiLevel = null; // partida em rede
             startMatch(t);
         } catch (TransportException e) {
-            warn(e.getMessage());
+            warnNetwork(e);
         }
     }
 
@@ -1727,7 +1798,7 @@ public final class Main extends JFrame {
             snapshot = newTransport.connect();
         } catch (TransportException e) {
             newTransport.disconnect();
-            warn(e.getMessage());
+            warnNetwork(e);
             return;
         }
 

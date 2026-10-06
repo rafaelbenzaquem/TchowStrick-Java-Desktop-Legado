@@ -44,6 +44,12 @@ public interface AccountCredentials {
         return isEmpty() ? Source.NONE : Source.LEGACY_SESSION;
     }
 
+    /**
+     * O servidor de jogo recusou a conta por contato não confirmado ({@code PERMISSION_DENIED}): a
+     * fonte pode atualizar o estado guardado da conta (BUG-003). Padrão: nada a fazer.
+     */
+    default void accountRestricted() {}
+
     static AccountCredentials none() {
         return fixed("");
     }

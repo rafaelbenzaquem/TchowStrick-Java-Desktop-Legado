@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 class IdentityCallCredentialsTest {
 
     /** Devolve um token novo a cada renovação; pode falhar com um motivo. */
-    private static final class RenewingCredentials implements AccountCredentials {
+    private static class RenewingCredentials implements AccountCredentials {
         final Deque<String> tokens = new ArrayDeque<>();
         CredentialException failure;
         int renewals;
@@ -153,6 +153,80 @@ class IdentityCallCredentialsTest {
         assertFalse(
                 CredentialRetry.shouldRetry(
                         AccountCredentials.none(), Status.UNAUTHENTICATED.asRuntimeException()));
+    }
+
+    @Test
+    void recusaDoServidorPorContatoAvisaACredencial() {
+        AtomicInteger restricted = new AtomicInteger();
+        var credentials =
+                new RenewingCredentials() {
+                    @Override
+                    public void accountRestricted() {
+                        restricted.incrementAndGet();
+                    }
+                };
+        credentials.tokens.add("acesso-1");
+
+        closeFromServer(
+                credentials,
+                Status.PERMISSION_DENIED.withDescription(
+                        "confirme seu contato para continuar jogando"));
+        assertEquals(1, restricted.get());
+
+        closeFromServer(
+                credentials,
+                Status.PERMISSION_DENIED.withDescription("sessão não pertence ao participante"));
+        closeFromServer(credentials, Status.UNAUTHENTICATED);
+        assertEquals(1, restricted.get(), "só a recusa por contato marca a conta");
+    }
+
+    /** O "servidor" encerra a chamada com {@code status} assim que ela começa. */
+    private static void closeFromServer(AccountCredentials credentials, Status status) {
+        AtomicReference<Status> seen = new AtomicReference<>();
+        Channel channel =
+                new Channel() {
+                    @Override
+                    public String authority() {
+                        return "test";
+                    }
+
+                    @Override
+                    public <ReqT, RespT> ClientCall<ReqT, RespT> newCall(
+                            MethodDescriptor<ReqT, RespT> method, CallOptions options) {
+                        return new ClientCall<>() {
+                            @Override
+                            public void start(Listener<RespT> listener, Metadata headers) {
+                                listener.onClose(status, new Metadata());
+                            }
+
+                            @Override
+                            public void request(int count) {}
+
+                            @Override
+                            public void cancel(String message, Throwable cause) {}
+
+                            @Override
+                            public void halfClose() {}
+
+                            @Override
+                            public void sendMessage(ReqT message) {}
+                        };
+                    }
+                };
+        new GameCallCredentials(credentials, () -> null)
+                .interceptCall(
+                        br.com.mss.tchow.net.grpc.proto.GameServiceGrpc.getSendChatMethod(),
+                        CallOptions.DEFAULT,
+                        channel)
+                .start(
+                        new ClientCall.Listener<>() {
+                            @Override
+                            public void onClose(Status s, Metadata trailers) {
+                                seen.set(s);
+                            }
+                        },
+                        new Metadata());
+        assertEquals(status.getCode(), seen.get().getCode(), "o status chega ao chamador");
     }
 
     @Test

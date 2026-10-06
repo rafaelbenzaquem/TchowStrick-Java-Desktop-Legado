@@ -9,6 +9,7 @@ import br.com.mss.identity.client.SessionStore;
 import br.com.mss.identity.client.SignUpResult;
 import br.com.mss.tchow.app.IdentitySessionStore.StoredIdentitySession;
 import br.com.mss.tchow.net.config.IdentityTarget;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -28,6 +29,11 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
 
     private final IdentityClient client;
 
+    /** Sessão local, para guardar o estado derivado (BUG-003); {@code null} em testes antigos. */
+    private final IdentitySessionStore store;
+
+    private final Clock clock;
+
     /** Produção/desenvolvimento: canal próprio para {@code target}, sessão em {@code store}. */
     public IdentityClientGateway(IdentityTarget target, IdentitySessionStore store) {
         this(target, store, deviceId());
@@ -39,7 +45,7 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
      */
     public IdentityClientGateway(
             IdentityTarget target, IdentitySessionStore store, String deviceId) {
-        this(factoryFor(target, store, deviceId));
+        this(factoryFor(target, store, deviceId), store, Clock.systemUTC());
     }
 
     private static Supplier<IdentityClient> factoryFor(
@@ -60,7 +66,18 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
 
     /** Testes: fábrica arbitrária (ex.: canal em processo). */
     IdentityClientGateway(Supplier<IdentityClient> factory) {
+        this(factory, null, Clock.systemUTC());
+    }
+
+    /**
+     * Testes: fábrica arbitrária com o store da sessão (o mesmo do {@link StoreAdapter} da fábrica)
+     * e relógio controlado.
+     */
+    IdentityClientGateway(
+            Supplier<IdentityClient> factory, IdentitySessionStore store, Clock clock) {
         this.client = factory.get();
+        this.store = store;
+        this.clock = clock;
     }
 
     private IdentityClient client() {
@@ -106,7 +123,42 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
 
     @Override
     public AccountStatus refreshStatus() {
-        return status(run(() -> client().refreshIfNeeded()));
+        Session session = run(() -> client().refreshIfNeeded());
+        AccountState stored = AccountState.valueOf(session.state().name());
+        if (stored == AccountState.ACTIVE) {
+            return status(session);
+        }
+        // O estado guardado só muda quando a sessão é rotacionada; o perfil diz na hora se o
+        // contato já foi confirmado (inclusive em outro dispositivo).
+        boolean verified = run(() -> client().profile()).contactVerified();
+        Optional<Instant> since =
+                store == null ? Optional.empty() : store.provisionalSince(session.accountId());
+        Optional<AccountState> derived =
+                IdentityAccountGateway.deriveState(stored, verified, since, clock.instant());
+        if (derived.isEmpty()) {
+            // Sem referência para a carência (sessão anterior a esta versão): uma rotação
+            // devolve o estado calculado pela identidade.
+            return status(run(() -> client().refresh()));
+        }
+        return persist(session, derived.get());
+    }
+
+    @Override
+    public void markRestricted() {
+        client().currentSession().ifPresent(s -> persist(s, AccountState.RESTRICTED));
+    }
+
+    /** Guarda {@code state} na sessão local (mesmo token) e devolve o resumo. */
+    private AccountStatus persist(Session session, AccountState state) {
+        if (store != null && !state.name().equals(session.state().name())) {
+            store.save(
+                    new StoredIdentitySession(
+                            session.sessionToken(),
+                            session.accountId(),
+                            session.expiresAt().getEpochSecond(),
+                            state.name()));
+        }
+        return new AccountStatus(session.accountId(), state, session.expiresAt());
     }
 
     @Override
@@ -217,9 +269,15 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
     /** Expõe o {@link IdentitySessionStore} do desktop como o store da biblioteca. */
     static final class StoreAdapter implements SessionStore {
         private final IdentitySessionStore store;
+        private final Clock clock;
 
         StoreAdapter(IdentitySessionStore store) {
+            this(store, Clock.systemUTC());
+        }
+
+        StoreAdapter(IdentitySessionStore store, Clock clock) {
             this.store = store;
+            this.clock = clock;
         }
 
         @Override
@@ -250,6 +308,11 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
                             session.accountId(),
                             session.expiresAt().getEpochSecond(),
                             session.state().name()));
+            // Referência da carência: a 1ª vez que a identidade informou a conta provisória.
+            if (session.state() == br.com.mss.identity.client.AccountState.PROVISIONAL
+                    && store.provisionalSince(session.accountId()).isEmpty()) {
+                store.rememberProvisionalSince(session.accountId(), clock.instant());
+            }
         }
 
         @Override
