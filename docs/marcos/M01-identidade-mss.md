@@ -9,7 +9,7 @@ evidencia: verificado
 branch: feature/preset-oficial-e-multicontas
 integracao: branch
 validacao: pendente
-atualizado_em: 2026-10-05
+atualizado_em: 2026-10-06
 ---
 
 # M1 — Identidade MSS no desktop
@@ -92,6 +92,22 @@ Testes novos desta etapa: `DataProfileTest` (trava, perfis automáticos/explíci
 Testes novos da etapa anterior: `IdentityPresetTest`, `LaunchOptionsIdentityTest`, `LocalIdentitySessionStoreTest`, `MssAccountFlowTest` e `IdentityGameCredentialsTest` (fake da porta), `IdentityCallCredentialsTest` (interceptor e nova tentativa) e `IdentityClientGatewayTest` (adaptador contra serviço falso em processo).
 
 Não verificado nesta entrega: execução da interface e jogo ponta a ponta contra identidade + `tchow-server` reais (serviço local da identidade não estava em execução durante a tarefa).
+
+## Mensagens e estado da conta no oficial `remote` (06/10/2026)
+
+Relato do responsável (06/10/2026, **documentado/informado**): com o oficial em `TCHOW_IDENTITY_MODE=remote`, quem cria conta MSS ou usa a conta antiga não joga e vê "sessão/conta expirada" e que precisa confirmar. Do lado do cliente, a recusa do servidor era mascarada e o estado da conta ficava desatualizado; o servidor está sendo ajustado em paralelo no TchowStrick (recusa da credencial de serviço → `UNAVAILABLE`; sessão antiga em `remote` → `FAILED_PRECONDITION`).
+
+Branch `fix/mensagens-conta-mss` (base `main` @ `e856296`):
+
+- [BUG-002](../bugs/BUG-002-mensagens-de-recusa-de-conta.md) (C1, C4): mensagens por caso, preservando a descrição local/servidor; texto da conta antiga só para servidores sem identidade.
+- [BUG-003](../bugs/BUG-003-estado-da-conta-mss-desatualizado.md) (C2, C3): estado consultado na identidade (perfil + carência de 1 h, sem rotação desnecessária), recusa por contato vinda do jogo marca a conta como restrita e oferece Confirmar contato; aviso de cadastro sem afirmar envio.
+- [BUG-004](../bugs/BUG-004-device-id-fora-do-perfil.md) (C5): só registrado.
+
+| Comando | Diretório / revisão | Resultado |
+|---|---|---|
+| `./mvnw.cmd -B -ntp -o verify` (JDK 21.0.2) | worktree da branch, `fix/mensagens-conta-mss` @ `015bd02` | `BUILD SUCCESS`; 235 testes, 0 falhas; spotless e gate de cobertura atendidos |
+
+Validação manual pendente: cenários nos BUG-002 e BUG-003; os que dependem das respostas novas do servidor exigem a correção do TchowStrick.
 
 ## Limitações e pendências
 
