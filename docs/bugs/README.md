@@ -15,5 +15,6 @@ Registro no formato do [padrão MSS](../../../docs/padroes/documentacao.md) §7.
 | BUG-002 | Recusa de conta MSS vira "sessão expirada" genérica e leva a um laço sem saída (C1, C4) | S2 | P0 | produção (relato do responsável) + revisão | corrigido (branch) | `fix/mensagens-conta-mss` | [BUG-002](BUG-002-mensagens-de-recusa-de-conta.md) |
 | BUG-003 | Estado da conta MSS desatualizado (provisória/restrita) e aviso de cadastro que afirma envio do código (C2, C3) | S3 | P1 | revisão | corrigido (branch) | `fix/mensagens-conta-mss` | [BUG-003](BUG-003-estado-da-conta-mss-desatualizado.md) |
 | BUG-004 | `deviceId` padrão da identidade gravado nas preferências globais, fora do perfil local (C5) | S4 | P3 | revisão | reportado | — | [BUG-004](BUG-004-device-id-fora-do-perfil.md) |
+| BUG-005 | Keepalive da partida invalida o acesso de jogo em cache a cada conexão | S4 | P3 | revisão (validação do BUG-002) | reportado | — | [BUG-005](BUG-005-keepalive-invalida-acesso-ao-conectar.md) |
 
-Próximo ID livre: **BUG-005**.
+Próximo ID livre: **BUG-006**.
