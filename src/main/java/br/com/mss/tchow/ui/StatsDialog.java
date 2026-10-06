@@ -20,9 +20,8 @@ public final class StatsDialog extends JDialog {
     public StatsDialog(Window owner, PlayerStatsDto stats) {
         super(owner, "Estatísticas", ModalityType.APPLICATION_MODAL);
         buildUi(stats);
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     public void showDialog() {
@@ -30,8 +29,8 @@ public final class StatsDialog extends JDialog {
     }
 
     private void buildUi(PlayerStatsDto stats) {
-        JPanel grid = new JPanel(new GridLayout(5, 2, 8, 4));
-        grid.setBorder(new EmptyBorder(10, 10, 10, 10));
+        JPanel grid = new JPanel(new GridLayout(5, 2, 16, 4));
+        grid.setBorder(new EmptyBorder(12, 12, 6, 12));
         addRow(grid, "Partidas jogadas:", stats.played());
         addRow(grid, "Vitórias:", stats.won());
         addRow(grid, "Derrotas:", stats.lost());
@@ -40,7 +39,8 @@ public final class StatsDialog extends JDialog {
 
         JButton ok = new JButton("Fechar");
         ok.addActionListener(e -> dispose());
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 6));
+        buttons.setBorder(new EmptyBorder(0, 6, 6, 6));
         buttons.add(ok);
 
         setLayout(new BorderLayout());

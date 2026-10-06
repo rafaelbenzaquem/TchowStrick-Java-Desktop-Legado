@@ -54,6 +54,8 @@ ou, direto pelo Maven:
 
 Bancada visual do tabuleiro (classe de teste): `./mvnw test-compile exec:java@sandbox`.
 
+Capturas de todas as telas (classe de teste `sandbox.GuiShots`, [BUG-001](../bugs/BUG-001-dimensionamento-gui.md)): sem rede e sem tocar as preferências reais (usa preferências em memória e diretório temporário), pinta cada janela/diálogo com dados longos num PNG e lista componentes cortados, sobrepostos ou maiores que a tela. Após `./mvnw test-compile` e `./mvnw dependency:build-classpath -Dmdep.outputFile=cp.txt`: `java -Dsun.java2d.uiScale=1.5 -cp "target/classes;target/test-classes;<conteúdo de cp.txt>" br.com.mss.tchow.sandbox.GuiShots <dir-de-saida>` (separador `;` no Windows).
+
 ### Jogar contra a IA (sem servidor)
 
 Menu `Partida` → `Criar partida…` → em **Adversário** escolha `IA — Fácil`, `IA — Média` ou `IA — Difícil`. A partida começa na hora, em processo, sem subir servidor.

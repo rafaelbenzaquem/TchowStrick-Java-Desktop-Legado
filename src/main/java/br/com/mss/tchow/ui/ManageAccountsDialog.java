@@ -5,8 +5,8 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Window;
+import java.awt.event.MouseEvent;
 import java.util.List;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -15,6 +15,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListSelectionModel;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableColumn;
 
 /**
  * "Jogador → Gerenciar contas…" (M1): contas e perfis guardados <b>neste computador</b> — contas
@@ -39,13 +41,17 @@ public final class ManageAccountsDialog extends JDialog {
         void remove(Entry entry);
     }
 
+    private static final int HINT_WIDTH = 640;
+    private static final int MAX_COLUMN_WIDTH = 360;
+    private static final int MAX_VIEWPORT_WIDTH = 1240;
+
     private static final String[] COLUMNS = {
         "Tipo", "Nome/nick", "Servidor ou identidade", "Conta", "Perfil local", "Estado", "Em uso"
     };
 
     private final transient Actions actions;
     private final EntriesModel model = new EntriesModel();
-    private final JTable table = new JTable(model);
+    private final JTable table = new EntriesTable(model);
     private final JButton remove = new JButton("Remover deste computador…");
 
     public ManageAccountsDialog(Window owner, Actions actions) {
@@ -53,8 +59,7 @@ public final class ManageAccountsDialog extends JDialog {
         this.actions = actions;
         buildUi();
         reload();
-        pack();
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     private void buildUi() {
@@ -62,7 +67,7 @@ public final class ManageAccountsDialog extends JDialog {
         table.getSelectionModel().addListSelectionListener(e -> updateButtons());
         table.setAutoCreateRowSorter(false);
         JScrollPane scroll = new JScrollPane(table);
-        scroll.setPreferredSize(new Dimension(900, 260));
+        scroll.setMinimumSize(new Dimension(240, 80));
 
         JButton addMss = new JButton("Adicionar conta MSS…");
         addMss.addActionListener(e -> run(actions::addMss));
@@ -85,12 +90,13 @@ public final class ManageAccountsDialog extends JDialog {
         JButton close = new JButton("Fechar");
         close.addActionListener(e -> dispose());
 
-        JPanel add = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        // WrapLayout: em janela estreita (tela pequena/escala alta) os botões quebram linha visível
+        JPanel add = new JPanel(new WrapLayout(FlowLayout.LEFT, 6, 4));
         add.add(addMss);
         add.add(addLegacy);
         add.add(addPlayer);
         add.add(addWindow);
-        JPanel manage = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
+        JPanel manage = new JPanel(new WrapLayout(FlowLayout.LEFT, 6, 4));
         manage.add(remove);
         manage.add(refresh);
         manage.add(close);
@@ -100,11 +106,13 @@ public final class ManageAccountsDialog extends JDialog {
 
         JLabel hint =
                 new JLabel(
-                        "<html>Dados guardados só neste computador (nunca tokens). Remover apaga"
-                                + " apenas os dados locais; excluir a conta no servidor fica em"
-                                + " Jogador → Conta MSS….</html>");
+                        UiSizing.wrappedHtml(
+                                "Dados guardados só neste computador (nunca tokens). Remover apaga"
+                                        + " apenas os dados locais; excluir a conta no servidor"
+                                        + " fica no menu Jogador → Conta MSS…",
+                                HINT_WIDTH));
         JPanel content = new JPanel(new BorderLayout(6, 6));
-        content.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        content.setBorder(UiSizing.dialogPadding());
         content.add(hint, BorderLayout.NORTH);
         content.add(scroll, BorderLayout.CENTER);
         content.add(south, BorderLayout.SOUTH);
@@ -119,7 +127,64 @@ public final class ManageAccountsDialog extends JDialog {
     private void reload() {
         model.entries = List.copyOf(actions.list());
         model.fireTableDataChanged();
+        sizeColumns();
         updateButtons();
+    }
+
+    /**
+     * Largura de cada coluna pelo conteúdo (cabeçalho e células, até {@link #MAX_COLUMN_WIDTH}); a
+     * área visível da tabela pede a soma, limitada a {@link #MAX_VIEWPORT_WIDTH} — o resto rola na
+     * horizontal em vez de cortar o texto com "…". O texto completo também aparece na dica.
+     */
+    private void sizeColumns() {
+        int total = 0;
+        for (int column = 0; column < table.getColumnCount(); column++) {
+            TableColumn tableColumn = table.getColumnModel().getColumn(column);
+            TableCellRenderer header = table.getTableHeader().getDefaultRenderer();
+            int width =
+                    header.getTableCellRendererComponent(
+                                    table, tableColumn.getHeaderValue(), false, false, -1, column)
+                            .getPreferredSize()
+                            .width;
+            for (int row = 0; row < table.getRowCount(); row++) {
+                width =
+                        Math.max(
+                                width,
+                                table.prepareRenderer(
+                                                table.getCellRenderer(row, column), row, column)
+                                        .getPreferredSize()
+                                        .width);
+            }
+            width = Math.min(MAX_COLUMN_WIDTH, width + table.getIntercellSpacing().width + 12);
+            tableColumn.setPreferredWidth(width);
+            total += width;
+        }
+        int rows = Math.max(6, Math.min(12, table.getRowCount()));
+        table.setPreferredScrollableViewportSize(
+                new Dimension(Math.min(total, MAX_VIEWPORT_WIDTH), rows * table.getRowHeight()));
+    }
+
+    /** Ocupa toda a largura quando cabe; senão mantém as larguras e rola na horizontal. */
+    private static final class EntriesTable extends JTable {
+        EntriesTable(AbstractTableModel model) {
+            super(model);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            return getParent() == null || getPreferredSize().width <= getParent().getWidth();
+        }
+
+        @Override
+        public String getToolTipText(MouseEvent event) {
+            int row = rowAtPoint(event.getPoint());
+            int column = columnAtPoint(event.getPoint());
+            if (row < 0 || column < 0) {
+                return null;
+            }
+            Object value = getValueAt(row, column);
+            return value == null ? null : value.toString();
+        }
     }
 
     private void updateButtons() {

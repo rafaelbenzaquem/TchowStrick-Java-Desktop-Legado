@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.Window;
 import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -44,9 +45,8 @@ public final class MssAccountDialog extends JDialog {
     public MssAccountDialog(Window owner, View view) {
         super(owner, "Conta MSS", ModalityType.APPLICATION_MODAL);
         buildUi(view);
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     /** {@code null} se o jogador só fechou. */
@@ -56,17 +56,21 @@ public final class MssAccountDialog extends JDialog {
     }
 
     private void buildUi(View view) {
-        JPanel info = new JPanel(new GridLayout(0, 1, 4, 4));
-        info.add(new JLabel("Servidor: " + view.serverName()));
-        info.add(new JLabel("<html><b>" + escapeHtml(view.stateText()) + "</b></html>"));
+        // BoxLayout (não GridLayout): cada linha com a própria altura, para textos longos
+        // (servidor, estado da conta, contato) quebrarem linha sem cortar nem sobrepor
+        JPanel info = new JPanel();
+        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+        addInfo(info, UiSizing.escapeHtml("Servidor: " + view.serverName()));
+        addInfo(info, "<b>" + UiSizing.escapeHtml(view.stateText()) + "</b>");
         if (view.profileAvailable()) {
-            info.add(
-                    new JLabel(
+            addInfo(
+                    info,
+                    UiSizing.escapeHtml(
                             "Contato: "
                                     + view.maskedContact()
                                     + (view.contactVerified() ? " (confirmado)" : " (pendente)")));
         } else {
-            info.add(new JLabel("Perfil indisponível no momento."));
+            addInfo(info, "Perfil indisponível no momento.");
         }
 
         JPanel profile = new JPanel(new GridLayout(0, 1, 4, 4));
@@ -110,21 +114,22 @@ public final class MssAccountDialog extends JDialog {
         buttons.add(signOutAll);
 
         JPanel content = new JPanel(new BorderLayout(6, 6));
-        content.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        content.setBorder(UiSizing.dialogPadding());
         content.add(info, BorderLayout.NORTH);
         content.add(profile, BorderLayout.CENTER);
         content.add(buttons, BorderLayout.SOUTH);
         setContentPane(content);
     }
 
+    private static void addInfo(JPanel info, String html) {
+        JLabel label = new JLabel(UiSizing.wrappedHtml(html, UiSizing.TEXT_WIDTH));
+        label.setAlignmentX(LEFT_ALIGNMENT);
+        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+        info.add(label);
+    }
+
     private void finish(Result chosen) {
         result = chosen;
         dispose();
-    }
-
-    private static String escapeHtml(String value) {
-        return value == null
-                ? ""
-                : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 }

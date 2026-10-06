@@ -48,9 +48,8 @@ public final class ServerPickerDialog extends JDialog {
         super(owner, "Trocar servidor", ModalityType.APPLICATION_MODAL);
         buildUi();
         loadPresets(current);
-        pack();
-        setResizable(false);
-        setLocationRelativeTo(owner);
+        // redimensionável: nomes/endereços longos ficam legíveis aumentando a janela
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo (bloqueia) e devolve o servidor escolhido, ou {@code null} se cancelado. */
@@ -85,9 +84,10 @@ public final class ServerPickerDialog extends JDialog {
         JScrollPane scroll = new JScrollPane(list);
         // Tamanho fixo, independente de quantos servidores a busca em LAN acrescentar depois do
         // pack() — mesmo bug de layout do JoinDialog (v1.1.5) evitado de propósito.
-        scroll.setPreferredSize(new Dimension(360, 120));
+        scroll.setPreferredSize(new Dimension(440, 140));
+        scroll.setMinimumSize(new Dimension(220, 60));
 
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel top = new JPanel(new WrapLayout(FlowLayout.LEFT, 6, 0));
         top.add(searchButton);
         JButton customButton = new JButton("Endereço personalizado…");
         top.add(customButton);
@@ -101,6 +101,7 @@ public final class ServerPickerDialog extends JDialog {
         south.add(buttons, BorderLayout.SOUTH);
 
         JPanel content = new JPanel(new BorderLayout(6, 6));
+        content.setBorder(UiSizing.dialogPadding());
         content.add(top, BorderLayout.NORTH);
         content.add(scroll, BorderLayout.CENTER);
         content.add(south, BorderLayout.SOUTH);
@@ -220,7 +221,7 @@ public final class ServerPickerDialog extends JDialog {
 
     private void warnInvalidAddress(String message) {
         JOptionPane.showMessageDialog(
-                this, message, "Endereço inválido", JOptionPane.WARNING_MESSAGE);
+                this, UiSizing.message(message), "Endereço inválido", JOptionPane.WARNING_MESSAGE);
     }
 
     /** {@code "<nome> (<host>:<porta>)"} — 🔒 marca TLS, ★ marca o preset padrão. */

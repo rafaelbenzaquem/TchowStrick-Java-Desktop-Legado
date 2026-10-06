@@ -9,7 +9,8 @@ Organizada conforme o [padrão de documentação MSS](../../docs/padroes/documen
 3. [Compatibilidade com o TchowStrick](compatibilidade.md): artefatos consumidos, versão e revisão de origem.
 4. [Operação local e arquitetura](operacao/local.md): build, execução, conexão e camadas.
 5. Validação: roteiro histórico [E4d-04](validacao/roteiros/E4d-04-estatisticas-desktop.md). Regressões manuais do sistema (`RM-01`…`RM-10`, que usam este cliente) continuam no [TchowStrick](../../TchowStrick/docs/validacao/regressao/).
-6. [CHANGELOG](../CHANGELOG.md) e [histórico](historico/README.md).
+6. [Bugs](bugs/README.md).
+7. [CHANGELOG](../CHANGELOG.md) e [histórico](historico/README.md).
 
 Decisões de arquitetura, contratos (SEG-01/02, SEG-03/OPS-01) e histórico de itens do cliente até 04/10/2026 (`E*`, M0–M5 do TchowStrick) ficam no [índice do TchowStrick](../../TchowStrick/docs/README.md).
 

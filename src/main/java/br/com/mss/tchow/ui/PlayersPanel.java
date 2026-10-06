@@ -21,7 +21,9 @@ public final class PlayersPanel extends JPanel {
     private static final Color WAITING_FG = new Color(0x90, 0x90, 0x90);
 
     public PlayersPanel() {
-        super(new FlowLayout(FlowLayout.LEFT, 8, 6));
+        // WrapLayout: com muitos jogadores numa janela estreita os chips quebram linha visível,
+        // em vez de irem para uma segunda linha fora da área reservada (FlowLayout comum).
+        super(new WrapLayout(FlowLayout.LEFT, 8, 6));
     }
 
     public void render(
@@ -52,7 +54,8 @@ public final class PlayersPanel extends JPanel {
             JLabel chip =
                     new JLabel(
                             text.toString(),
-                            new ColorIcon(PlayerColors.awt(color), 12),
+                            new ColorIcon(
+                                    PlayerColors.awt(color), Math.max(12, getFont().getSize())),
                             SwingConstants.LEFT);
             chip.setIconTextGap(6);
             chip.setOpaque(true);
