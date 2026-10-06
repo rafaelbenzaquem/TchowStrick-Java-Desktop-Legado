@@ -1,11 +1,15 @@
 package br.com.mss.tchow;
 
 import br.com.mss.tchow.app.AccountSessionStore;
+import br.com.mss.tchow.app.DataProfile;
+import br.com.mss.tchow.app.DataProfileException;
 import br.com.mss.tchow.app.IdentityAccountException;
 import br.com.mss.tchow.app.IdentityAccountGateway;
 import br.com.mss.tchow.app.IdentityClientGateway;
 import br.com.mss.tchow.app.IdentityGameCredentials;
+import br.com.mss.tchow.app.IdentitySessionStore;
 import br.com.mss.tchow.app.LocalAccountSessionStore;
+import br.com.mss.tchow.app.LocalAccountsService;
 import br.com.mss.tchow.app.LocalIdentitySessionStore;
 import br.com.mss.tchow.app.LocalProfileStore;
 import br.com.mss.tchow.app.LocalServerChoiceStore;
@@ -48,6 +52,7 @@ import br.com.mss.tchow.ui.ConfirmContactCodeDialog;
 import br.com.mss.tchow.ui.CreateOfficialAccountDialog;
 import br.com.mss.tchow.ui.HostDialog;
 import br.com.mss.tchow.ui.JoinDialog;
+import br.com.mss.tchow.ui.ManageAccountsDialog;
 import br.com.mss.tchow.ui.MssAccountDialog;
 import br.com.mss.tchow.ui.MssSignInDialog;
 import br.com.mss.tchow.ui.PlayersPanel;
@@ -58,6 +63,7 @@ import br.com.mss.tchow.ui.SplashPanel;
 import br.com.mss.tchow.ui.StatsDialog;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
+import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -73,6 +79,7 @@ import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -84,6 +91,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -94,11 +102,21 @@ public final class Main extends JFrame {
 
     private final JLabel statusLabel = new JLabel(" ");
 
-    private final ProfileStore profileStore = new LocalProfileStore();
-    private final WalletStore walletStore = new LocalWalletStore();
-    private final SessionTokenStore sessionTokenStore = new LocalSessionTokenStore();
+    /** Argumentos originais, repassados a uma "Nova janela" aberta pelo painel de contas. */
+    private static List<String> rawArgs = List.of();
+
+    /**
+     * Perfil local de dados desta janela (M1): sessão MSS, tokens de assento, perfis de jogador,
+     * carteira e sessão oficial antiga ficam nele, travado enquanto a janela estiver aberta — duas
+     * janelas nunca compartilham conta nem sessão. A escolha de servidor continua comum a todas.
+     */
+    private final DataProfile dataProfile;
+
+    private final ProfileStore profileStore;
+    private final WalletStore walletStore;
+    private final SessionTokenStore sessionTokenStore;
     private final ServerChoiceStore serverChoiceStore = new LocalServerChoiceStore();
-    private final AccountSessionStore accountSessionStore = new LocalAccountSessionStore();
+    private final AccountSessionStore accountSessionStore;
     private final GrpcAccountClient accountClient = new GrpcAccountClient();
     private PlayerProfile profile;
 
@@ -109,6 +127,9 @@ public final class Main extends JFrame {
     private IdentityAccountGateway identityGateway;
 
     private IdentityTarget identityGatewayTarget;
+
+    /** Sessão MSS (deste perfil local) por trás do {@link #identityGateway}. */
+    private IdentitySessionStore identityStore;
 
     private SplashPanel splash;
     private GameTransport transport;
@@ -136,12 +157,13 @@ public final class Main extends JFrame {
      */
     private ServerPreset activeServer;
 
-    public Main() {
-        this(LaunchOptions.defaults());
-    }
-
-    public Main(LaunchOptions launchOptions) {
+    public Main(LaunchOptions launchOptions, DataProfile dataProfile) {
         super("TchowStrick");
+        this.dataProfile = dataProfile;
+        this.profileStore = new LocalProfileStore(dataProfile);
+        this.walletStore = new LocalWalletStore(dataProfile);
+        this.sessionTokenStore = new LocalSessionTokenStore(dataProfile);
+        this.accountSessionStore = new LocalAccountSessionStore(dataProfile);
         this.launchOptions = launchOptions;
         this.embeddedServer = launchOptions.embeddedServer();
         this.activeServer =
@@ -167,6 +189,7 @@ public final class Main extends JFrame {
     }
 
     public static void main(String[] args) {
+        rawArgs = List.of(args);
         LaunchOptions options;
         try {
             options = LaunchOptions.parse(args);
@@ -187,7 +210,19 @@ public final class Main extends JFrame {
         } catch (Exception ignored) {
             // segue com o Look and Feel padrão
         }
-        SwingUtilities.invokeLater(() -> new Main(options).setVisible(true));
+        DataProfile dataProfile;
+        try {
+            dataProfile = DataProfile.acquire(DataProfile.defaultDataDir(), options.dataProfile());
+        } catch (DataProfileException e) {
+            System.err.println(e.getMessage());
+            if (!GraphicsEnvironment.isHeadless()) {
+                JOptionPane.showMessageDialog(
+                        null, e.getMessage(), "TchowStrick", JOptionPane.ERROR_MESSAGE);
+            }
+            System.exit(1);
+            return;
+        }
+        SwingUtilities.invokeLater(() -> new Main(options, dataProfile).setVisible(true));
     }
 
     /** Abre o {@link ServerPickerDialog} (só fora de partida) e grava a escolha, se houver. */
@@ -254,7 +289,13 @@ public final class Main extends JFrame {
     }
 
     private void applyProfileToTitle() {
-        setTitle(profile == null ? "TchowStrick" : "TchowStrick — " + profile.displayName());
+        String title = profile == null ? "TchowStrick" : "TchowStrick — " + profile.displayName();
+        // Perfil local de dados (M1): só aparece no título quando não é o padrão, para distinguir
+        // as janelas abertas ao mesmo tempo.
+        setTitle(
+                dataProfile.isDefault()
+                        ? title
+                        : title + " [perfil local: " + dataProfile.displayName() + "]");
     }
 
     /**
@@ -286,6 +327,7 @@ public final class Main extends JFrame {
     private Optional<StoredAccountSession> currentAccountSession() {
         if (profile == null
                 || embeddedServer
+                || activeServer.usesMssIdentity()
                 || !ServerDirectory.isTrustedIdentityEndpoint(activeServer))
             return Optional.empty();
         return accountSessionStore
@@ -345,8 +387,10 @@ public final class Main extends JFrame {
         }
         closeIdentityGateway();
         try {
+            IdentitySessionStore store = new LocalIdentitySessionStore(dataProfile, target);
             identityGateway =
-                    new IdentityClientGateway(target, new LocalIdentitySessionStore(target));
+                    new IdentityClientGateway(target, store, dataProfile.identityDeviceId());
+            identityStore = store;
             identityGatewayTarget = target;
         } catch (IllegalArgumentException e) {
             warn(e.getMessage());
@@ -364,7 +408,289 @@ public final class Main extends JFrame {
             }
             identityGateway = null;
             identityGatewayTarget = null;
+            identityStore = null;
         }
+    }
+
+    /** Conta MSS ativa neste perfil local, para a barra: nick lembrado ou "conectada". */
+    private String mssAccountLabel() {
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway == null) {
+            return "indisponível";
+        }
+        Optional<IdentityAccountGateway.AccountStatus> account = gateway.currentAccount();
+        if (account.isEmpty()) {
+            return "não conectada";
+        }
+        return identityStore
+                .nickFor(account.get().accountId())
+                .orElse("conectada (" + shortId(account.get().accountId()) + ")");
+    }
+
+    private static String shortId(String accountId) {
+        return accountId == null || accountId.length() <= 8
+                ? String.valueOf(accountId)
+                : accountId.substring(0, 8) + "…";
+    }
+
+    /** Lembra nick e contato mascarado da conta para a barra e o painel de contas. */
+    private void rememberMssNick(IdentityAccountGateway gateway) {
+        try {
+            Optional<IdentityAccountGateway.AccountStatus> account = gateway.currentAccount();
+            if (account.isPresent() && identityStore != null) {
+                IdentityAccountGateway.Profile p = gateway.profile();
+                identityStore.rememberProfile(
+                        account.get().accountId(), p.nick(), p.maskedContact());
+            }
+        } catch (IdentityAccountException e) {
+            // a barra mostra "conectada" sem o nick
+        }
+    }
+
+    // --- Gerenciar contas (dados locais, M1) ---------------------------------
+
+    /** "Jogador → Gerenciar contas…": lista, adiciona e remove contas deste computador. */
+    private void manageAccountsFlow() {
+        if (transport != null) {
+            warn("Saia da partida antes de gerenciar as contas.");
+            return;
+        }
+        LocalAccountsService service =
+                new LocalAccountsService(DataProfile.defaultDataDir(), dataProfile);
+        new ManageAccountsDialog(
+                        this,
+                        new ManageAccountsDialog.Actions() {
+                            @Override
+                            public List<LocalAccountsService.Entry> list() {
+                                return service.list();
+                            }
+
+                            @Override
+                            public void addMss() {
+                                addMssAccountFromPanel();
+                            }
+
+                            @Override
+                            public void addLegacy() {
+                                addLegacyAccountFromPanel();
+                            }
+
+                            @Override
+                            public void addPlayer() {
+                                createProfileFlow();
+                            }
+
+                            @Override
+                            public void addWindow() {
+                                openNewWindowFlow();
+                            }
+
+                            @Override
+                            public void remove(LocalAccountsService.Entry entry) {
+                                removeLocalEntry(service, entry);
+                            }
+                        })
+                .setVisible(true);
+        this.profile = profileStore.active().orElse(null);
+        applyProfileToTitle();
+        showIdle();
+    }
+
+    private void addMssAccountFromPanel() {
+        if (embeddedServer || !activeServer.usesMssIdentity()) {
+            warn(
+                    "O servidor atual ("
+                            + activeServer.name()
+                            + ") não usa conta MSS. Use Trocar servidor… e escolha o Oficial ou"
+                            + " outro servidor com conta MSS.");
+            return;
+        }
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway == null) {
+            return;
+        }
+        if (gateway.currentAccount().isEmpty()) {
+            if (mssFlow(gateway).signIn().isPresent()) {
+                rememberMssNick(gateway);
+            }
+            return;
+        }
+        Object[] options = {"Nova janela", "Trocar de conta nesta janela", "Cancelar"};
+        int choice =
+                JOptionPane.showOptionDialog(
+                        this,
+                        "Esta janela (perfil local "
+                                + dataProfile.displayName()
+                                + ") já está na conta MSS "
+                                + mssAccountLabel()
+                                + ".\nPara jogar com outra conta ao mesmo tempo, abra uma nova"
+                                + " janela: ela usa outro perfil local, com a sua própria conta.",
+                        "Adicionar conta MSS",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        options,
+                        options[0]);
+        if (choice == 0) {
+            openNewWindow(null);
+        } else if (choice == 1) {
+            switchMssAccountFlow();
+        }
+    }
+
+    private void addLegacyAccountFromPanel() {
+        if (embeddedServer || !ServerDirectory.isTrustedIdentityEndpoint(activeServer)) {
+            warn(
+                    "A conta oficial antiga (tchowstrick.auth.v1) só existe em servidores sem"
+                            + " identidade MSS que a aceitem. O servidor oficial agora usa conta"
+                            + " MSS: use Adicionar conta MSS….");
+            return;
+        }
+        if (ensureProfile()) {
+            createOfficialAccountFlow();
+        }
+    }
+
+    /** Pede o nome (vazio = próximo livre) e abre outra janela do cliente nesse perfil local. */
+    private void openNewWindowFlow() {
+        String name =
+                JOptionPane.showInputDialog(
+                        this,
+                        "Nome do perfil local da nova janela (vazio = próximo livre, ex.:"
+                                + " perfil-2):",
+                        "Nova janela",
+                        JOptionPane.PLAIN_MESSAGE);
+        if (name == null) {
+            return;
+        }
+        String perfil = null;
+        if (!name.isBlank()) {
+            try {
+                perfil = DataProfile.normalize(name);
+            } catch (DataProfileException e) {
+                warn(e.getMessage());
+                return;
+            }
+        }
+        openNewWindow(perfil);
+    }
+
+    /** Abre outro processo do cliente (mesmo Java, classpath e argumentos, outro perfil local). */
+    private void openNewWindow(String perfil) {
+        List<String> command = new ArrayList<>();
+        command.add(ProcessHandle.current().info().command().orElse("java"));
+        for (String property : List.of("tchow.servers.file", DataProfile.DATA_DIR_PROPERTY)) {
+            String value = System.getProperty(property);
+            if (value != null) {
+                command.add("-D" + property + "=" + value);
+            }
+        }
+        command.add("-cp");
+        command.add(System.getProperty("java.class.path"));
+        command.add(Main.class.getName());
+        rawArgs.stream().filter(a -> !a.startsWith("--perfil=")).forEach(command::add);
+        if (perfil != null) {
+            command.add("--perfil=" + perfil);
+        }
+        try {
+            new ProcessBuilder(command)
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+            statusLabel.setText(
+                    "Abrindo nova janela"
+                            + (perfil == null ? "" : " (perfil local " + perfil + ")")
+                            + "…");
+        } catch (IOException e) {
+            warn("Não foi possível abrir outra janela: " + e.getMessage());
+        }
+    }
+
+    /** Confirmação explícita + remoção só dos dados locais do registro escolhido. */
+    private void removeLocalEntry(LocalAccountsService service, LocalAccountsService.Entry entry) {
+        Optional<String> blocker = service.removalBlocker(entry);
+        if (blocker.isPresent()) {
+            warn(blocker.get());
+            return;
+        }
+        JTextArea text = new JTextArea(service.removalDescription(entry), 0, 48);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        text.setEditable(false);
+        text.setOpaque(false);
+        JPanel form = new JPanel(new BorderLayout(0, 8));
+        form.add(text, BorderLayout.CENTER);
+        JCheckBox remoteSignOut =
+                new JCheckBox("Sair também no servidor (só este dispositivo)", false);
+        if (entry.kind() == LocalAccountsService.Kind.MSS) {
+            form.add(remoteSignOut, BorderLayout.SOUTH);
+        }
+        if (JOptionPane.showConfirmDialog(
+                        this,
+                        form,
+                        "Remover deste computador",
+                        JOptionPane.OK_CANCEL_OPTION,
+                        JOptionPane.WARNING_MESSAGE)
+                != JOptionPane.OK_OPTION) {
+            return;
+        }
+        boolean own = entry.dataProfile().equals(dataProfile.name());
+        if (own && entry.kind() == LocalAccountsService.Kind.MSS) {
+            closeIdentityGateway(); // o gateway desta janela não reusa acesso em cache da sessão
+        }
+        try {
+            service.remove(
+                            entry,
+                            remoteSignOut.isSelected()
+                                    ? (target, store, deviceId) -> {
+                                        IdentityClientGateway gateway =
+                                                new IdentityClientGateway(target, store, deviceId);
+                                        try {
+                                            gateway.signOut(false);
+                                        } finally {
+                                            gateway.close();
+                                        }
+                                    }
+                                    : null)
+                    .ifPresent(this::warn);
+            statusLabel.setText(entry.kind().label() + " removida deste computador.");
+        } catch (DataProfileException | IllegalStateException e) {
+            warn(e.getMessage());
+        }
+        if (own) {
+            this.profile = profileStore.active().orElse(null);
+            applyProfileToTitle();
+        }
+    }
+
+    /** "Sair/Trocar de conta": sai só deste perfil local e entra com outra conta MSS. */
+    private void switchMssAccountFlow() {
+        if (transport != null) {
+            warn("Saia da partida antes de trocar de conta.");
+            return;
+        }
+        IdentityAccountGateway gateway = identityGateway();
+        if (gateway == null) {
+            warn("Este servidor não usa conta MSS.");
+            return;
+        }
+        if (gateway.currentAccount().isPresent()
+                && JOptionPane.showConfirmDialog(
+                                this,
+                                "Sair da conta MSS "
+                                        + mssAccountLabel()
+                                        + " nesta janela (perfil local "
+                                        + dataProfile.displayName()
+                                        + ") e entrar com outra?",
+                                "Trocar de conta",
+                                JOptionPane.YES_NO_OPTION)
+                        != JOptionPane.YES_OPTION) {
+            return;
+        }
+        if (mssFlow(gateway).switchAccount().isPresent()) {
+            rememberMssNick(gateway);
+        }
+        showIdle();
     }
 
     private MssAccountFlow mssFlow(IdentityAccountGateway gateway) {
@@ -441,7 +767,19 @@ public final class Main extends JFrame {
             }
             return true;
         }
-        return mssFlow(gateway).signIn().isPresent();
+        if (mssFlow(gateway).signIn().isPresent()) {
+            rememberMssNick(gateway);
+            if (transport == null) {
+                showIdle();
+            }
+            return true;
+        }
+        warn(
+                "O servidor "
+                        + activeServer.name()
+                        + " só aceita jogadores com conta MSS. Entre ou crie a conta em"
+                        + " Jogador → Conta MSS… para jogar.");
+        return false;
     }
 
     /** "Jogador → Conta MSS…": entrar, ou estado/perfil/sair se já entrou. */
@@ -458,15 +796,24 @@ public final class Main extends JFrame {
         MssAccountFlow flow = mssFlow(gateway);
         Optional<IdentityAccountGateway.AccountStatus> status = flow.refreshStatus();
         if (status.isEmpty()) {
-            flow.signIn();
+            if (flow.signIn().isPresent()) {
+                rememberMssNick(gateway);
+            }
+            showIdle();
             return;
         }
         Optional<IdentityAccountGateway.Profile> accountProfile = flow.profile();
+        accountProfile.ifPresent(
+                p ->
+                        identityStore.rememberProfile(
+                                status.get().accountId(), p.nick(), p.maskedContact()));
         MssAccountDialog.Result result =
                 new MssAccountDialog(
                                 this,
                                 new MssAccountDialog.View(
-                                        activeServer.name(),
+                                        activeServer.name()
+                                                + " · perfil local "
+                                                + dataProfile.displayName(),
                                         MssAccountFlow.stateMessage(status.get().state()),
                                         accountProfile
                                                 .map(IdentityAccountGateway.Profile::nick)
@@ -490,9 +837,24 @@ public final class Main extends JFrame {
         switch (result.action()) {
             case SAVE_PROFILE ->
                     flow.updateProfile(result.nick(), result.avatarId())
-                            .ifPresent(p -> statusLabel.setText("Perfil MSS salvo: " + p.nick()));
+                            .ifPresent(
+                                    p -> {
+                                        identityStore.rememberProfile(
+                                                p.accountId(), p.nick(), p.maskedContact());
+                                        showIdle();
+                                        statusLabel.setText("Perfil MSS salvo: " + p.nick());
+                                    });
             case CONFIRM_EMAIL -> flow.confirmEmail();
-            case SIGN_OUT_THIS_DEVICE -> flow.signOut(false);
+            case SWITCH_ACCOUNT -> {
+                if (flow.switchAccount().isPresent()) {
+                    rememberMssNick(gateway);
+                }
+                showIdle();
+            }
+            case SIGN_OUT_THIS_DEVICE -> {
+                flow.signOut(false);
+                showIdle();
+            }
             case SIGN_OUT_ALL_DEVICES -> {
                 if (JOptionPane.showConfirmDialog(
                                 this,
@@ -502,6 +864,7 @@ public final class Main extends JFrame {
                                 JOptionPane.WARNING_MESSAGE)
                         == JOptionPane.YES_OPTION) {
                     flow.signOut(true);
+                    showIdle();
                 }
             }
         }
@@ -861,6 +1224,10 @@ public final class Main extends JFrame {
                 });
         JMenuItem mssAccount = new JMenuItem("Conta MSS…");
         mssAccount.addActionListener(e -> mssAccountFlow());
+        JMenuItem switchMss = new JMenuItem("Sair/Trocar de conta MSS…");
+        switchMss.addActionListener(e -> switchMssAccountFlow());
+        JMenuItem manageAccounts = new JMenuItem("Gerenciar contas…");
+        manageAccounts.addActionListener(e -> manageAccountsFlow());
         JMenuItem confirmContact = new JMenuItem("Confirmar contato…");
         confirmContact.addActionListener(e -> confirmContactFlow());
         JMenuItem stats = new JMenuItem("Estatísticas…");
@@ -871,6 +1238,8 @@ public final class Main extends JFrame {
         player.addSeparator();
         player.add(accessAccount);
         player.add(mssAccount);
+        player.add(switchMss);
+        player.add(manageAccounts);
         player.add(confirmContact);
         player.add(stats);
         JMenuItem recover = new JMenuItem("Recuperar conta…");
@@ -911,6 +1280,9 @@ public final class Main extends JFrame {
         top.add(buildProfileBar());
         if (!embeddedServer) {
             top.add(buildServerBar());
+            if (activeServer.usesMssIdentity()) {
+                top.add(buildMssAccountBar());
+            }
         }
         return top;
     }
@@ -920,7 +1292,10 @@ public final class Main extends JFrame {
         JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         bar.add(
                 new JLabel(
-                        profile == null ? "Perfil: nenhum" : "Perfil: " + profile.displayName()));
+                        (profile == null ? "Perfil: nenhum" : "Perfil: " + profile.displayName())
+                                + (dataProfile.isDefault()
+                                        ? ""
+                                        : " · perfil local: " + dataProfile.displayName())));
         JButton button = new JButton(profile == null ? "Criar perfil…" : "Trocar perfil…");
         button.addActionListener(
                 e -> {
@@ -944,6 +1319,33 @@ public final class Main extends JFrame {
                                 + (activeServer.usesMssIdentity() ? " (conta MSS)" : "")));
         JButton button = new JButton("Trocar servidor…");
         button.addActionListener(e -> switchServerFlow());
+        bar.add(button);
+        return bar;
+    }
+
+    /**
+     * Conta MSS ativa nesta janela (M1) — servidores com identidade. Mostra o perfil local, para
+     * que duas janelas abertas ao mesmo tempo fiquem distinguíveis, e permite trocar de conta.
+     */
+    private JPanel buildMssAccountBar() {
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        IdentityAccountGateway gateway = identityGateway();
+        boolean signedIn = gateway != null && gateway.currentAccount().isPresent();
+        bar.add(
+                new JLabel(
+                        "Conta MSS: "
+                                + mssAccountLabel()
+                                + " · perfil local: "
+                                + dataProfile.displayName()));
+        JButton button = new JButton(signedIn ? "Sair/Trocar de conta…" : "Entrar…");
+        button.addActionListener(
+                e -> {
+                    if (signedIn) {
+                        switchMssAccountFlow();
+                    } else {
+                        mssAccountFlow();
+                    }
+                });
         bar.add(button);
         return bar;
     }

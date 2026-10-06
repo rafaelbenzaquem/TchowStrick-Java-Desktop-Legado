@@ -26,6 +26,11 @@ public final class LocalProfileStore implements ProfileStore {
         this(Preferences.userNodeForPackage(LocalProfileStore.class).node("profiles"));
     }
 
+    /** Perfis de jogador do perfil local de dados {@code profile} (um por janela). */
+    public LocalProfileStore(DataProfile profile) {
+        this(profile.node("profiles"));
+    }
+
     LocalProfileStore(Preferences root) {
         this.root = root;
     }
@@ -79,6 +84,25 @@ public final class LocalProfileStore implements ProfileStore {
             return;
         }
         root.put(KEY_ACTIVE, id.value());
+        flush();
+    }
+
+    /**
+     * Apaga o perfil {@code id} deste dispositivo ("Gerenciar contas"); se era o ativo, fica sem
+     * perfil ativo. Ids desconhecidos são ignorados.
+     */
+    public synchronized void remove(PlayerId id) {
+        try {
+            if (!root.nodeExists(id.value())) {
+                return;
+            }
+            root.node(id.value()).removeNode();
+        } catch (BackingStoreException e) {
+            throw new IllegalStateException("não foi possível remover o perfil local", e);
+        }
+        if (id.value().equals(root.get(KEY_ACTIVE, null))) {
+            root.remove(KEY_ACTIVE);
+        }
         flush();
     }
 

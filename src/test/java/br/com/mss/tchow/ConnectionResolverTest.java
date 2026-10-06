@@ -94,4 +94,48 @@ class ConnectionResolverTest {
 
         assertTrue(resolved.name().equals("Casa"));
     }
+
+    @Test
+    void escolhaSalvaAntigaDoOficialSemIdentidadePassaAoPresetNovoEERegravada() {
+        ServerPreset antigo =
+                new ServerPreset(
+                        "Oficial", "tchowstrick.minashonsoftware.com.br", 443, true, true, true);
+        FakeServerChoiceStore saved = new FakeServerChoiceStore();
+        saved.remember(antigo);
+
+        ServerPreset resolved =
+                ConnectionResolver.resolveDefault(
+                        LaunchOptions.defaults(), ServerDirectory.of(List.of()), saved);
+
+        assertTrue(resolved.usesMssIdentity());
+        assertEquals("identity.minashonsoftware.com.br", resolved.identity().host());
+        assertTrue(resolved.identity().tls());
+        assertEquals(resolved, saved.lastChoice().orElseThrow());
+    }
+
+    @Test
+    void escolhaSalvaQueNaoPrecisaDeAtualizacaoNaoERegravada() {
+        ServerPreset casa = new ServerPreset("Casa", "192.168.0.5", 7000, false, false, false);
+        java.util.concurrent.atomic.AtomicInteger writes =
+                new java.util.concurrent.atomic.AtomicInteger();
+        ServerChoiceStore saved =
+                new ServerChoiceStore() {
+                    @Override
+                    public Optional<ServerPreset> lastChoice() {
+                        return Optional.of(casa);
+                    }
+
+                    @Override
+                    public void remember(ServerPreset preset) {
+                        writes.incrementAndGet();
+                    }
+                };
+
+        ServerPreset resolved =
+                ConnectionResolver.resolveDefault(
+                        LaunchOptions.defaults(), ServerDirectory.of(List.of()), saved);
+
+        assertEquals(casa, resolved);
+        assertEquals(0, writes.get());
+    }
 }

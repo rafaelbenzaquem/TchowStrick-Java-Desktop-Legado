@@ -30,16 +30,24 @@ public final class IdentityClientGateway implements IdentityAccountGateway {
 
     /** Produção/desenvolvimento: canal próprio para {@code target}, sessão em {@code store}. */
     public IdentityClientGateway(IdentityTarget target, IdentitySessionStore store) {
-        this(factoryFor(target, store));
+        this(target, store, deviceId());
+    }
+
+    /**
+     * Como {@link #IdentityClientGateway(IdentityTarget, IdentitySessionStore)}, com o {@code
+     * deviceId} do perfil local de dados ({@link DataProfile#identityDeviceId()}).
+     */
+    public IdentityClientGateway(
+            IdentityTarget target, IdentitySessionStore store, String deviceId) {
+        this(factoryFor(target, store, deviceId));
     }
 
     private static Supplier<IdentityClient> factoryFor(
-            IdentityTarget target, IdentitySessionStore store) {
+            IdentityTarget target, IdentitySessionStore store, String deviceId) {
         if (!target.plaintextAllowed()) {
             throw new IllegalArgumentException(
                     "identidade sem TLS só é permitida em localhost: " + target.authority());
         }
-        String deviceId = deviceId();
         return () ->
                 IdentityClient.builder()
                         .target(target.authority())

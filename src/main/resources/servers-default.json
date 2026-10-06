@@ -5,6 +5,8 @@
     "port": 443,
     "tls": true,
     "default": true,
-    "official": true
+    "official": true,
+    "identity": "identity.minashonsoftware.com.br:443",
+    "identityTls": true
   }
 ]

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -97,10 +98,81 @@ class IdentityPresetTest {
     }
 
     @Test
-    void catalogoEmbutidoNaoApontaOOficialParaAIdentidade() {
-        assertTrue(
+    void catalogoEmbutidoApontaOOficialParaAIdentidadeDeProducaoComTls() {
+        ServerPreset oficial =
                 ServerDirectory.loadBundled().presets().stream()
-                        .noneMatch(ServerPreset::usesMssIdentity));
+                        .filter(ServerPreset::official)
+                        .findFirst()
+                        .orElseThrow();
+        assertTrue(oficial.usesMssIdentity());
+        assertEquals(
+                new IdentityTarget("identity.minashonsoftware.com.br", 443, true),
+                oficial.identity());
+        assertTrue(oficial.tls());
+    }
+
+    @Test
+    void registroAntigoDoOficialSemIdentidadePassaAUsarOPresetNovo() {
+        ServerPreset antigo =
+                new ServerPreset(
+                        "Oficial", "tchowstrick.minashonsoftware.com.br", 443, true, true, true);
+
+        ServerPreset atual = ServerDirectory.withOfficialIdentity(antigo);
+
+        assertEquals(
+                new IdentityTarget("identity.minashonsoftware.com.br", 443, true),
+                atual.identity());
+        assertTrue(atual.official());
+        assertTrue(atual.isDefault());
+        assertFalse(ServerDirectory.isTrustedIdentityEndpoint(atual));
+    }
+
+    @Test
+    void atualizacaoNaoMexeEmLanEnderecoPersonalizadoNemOutrosDestinos() {
+        ServerPreset lan = new ServerPreset("LAN", "192.168.0.5", 5050, false, true, false);
+        ServerPreset semTls =
+                new ServerPreset(
+                        "Oficial", "tchowstrick.minashonsoftware.com.br", 443, false, true, true);
+        ServerPreset outraPorta =
+                new ServerPreset(
+                        "Oficial", "tchowstrick.minashonsoftware.com.br", 8443, true, true, true);
+        ServerPreset comIdentidade =
+                new ServerPreset(
+                        "Oficial",
+                        "tchowstrick.minashonsoftware.com.br",
+                        443,
+                        true,
+                        true,
+                        true,
+                        new IdentityTarget("localhost", 9100, false));
+
+        assertEquals(lan, ServerDirectory.withOfficialIdentity(lan));
+        assertEquals(semTls, ServerDirectory.withOfficialIdentity(semTls));
+        assertEquals(outraPorta, ServerDirectory.withOfficialIdentity(outraPorta));
+        assertEquals(comIdentidade, ServerDirectory.withOfficialIdentity(comIdentidade));
+    }
+
+    @Test
+    void servidoresJsonExternoComOOficialSemIdentidadeGanhaAIdentidade() throws Exception {
+        Path file = Files.createTempFile("servers-oficial-antigo", ".json");
+        try {
+            Files.writeString(
+                    file,
+                    """
+                    [{"name": "Oficial", "host": "tchowstrick.minashonsoftware.com.br",
+                      "port": 443, "tls": true, "default": true, "official": true},
+                     {"name": "LAN", "host": "192.168.0.5", "port": 5050, "tls": false}]
+                    """);
+            System.setProperty(ServerDirectory.EXTERNAL_FILE_PROPERTY, file.toString());
+
+            List<ServerPreset> presets = ServerDirectory.load().presets();
+
+            assertTrue(presets.get(0).usesMssIdentity());
+            assertNull(presets.get(1).identity());
+        } finally {
+            System.clearProperty(ServerDirectory.EXTERNAL_FILE_PROPERTY);
+            Files.deleteIfExists(file);
+        }
     }
 
     @Test

@@ -23,7 +23,8 @@ import org.slf4j.LoggerFactory;
  *       #EXTERNAL_FILE_PROPERTY}, senão {@value #DEFAULT_EXTERNAL_FILE} no diretório de trabalho) —
  *       se existir e for válido, <b>substitui</b> a lista inteira, sem mesclar com a embutida;
  *   <li>senão, o {@code servers.json} embutido no {@code .jar} ({@value #BUNDLED_RESOURCE}), que
- *       traz o preset "Oficial" apontando para o servidor de produção na OCI.
+ *       traz o preset "Oficial" apontando para o servidor de produção na OCI, com a identidade MSS
+ *       de produção (desde 05/10/2026 o oficial só aceita conta MSS).
  * </ol>
  *
  * <p>Nunca lança: um arquivo externo malformado só gera um aviso no log e cai para o embutido; se
@@ -68,8 +69,11 @@ public final class ServerDirectory {
         Path external = Path.of(System.getProperty(EXTERNAL_FILE_PROPERTY, DEFAULT_EXTERNAL_FILE));
         if (Files.isRegularFile(external)) {
             try {
+                ServerDirectory bundled = loadBundled();
                 List<ServerPreset> parsed =
-                        parse(Files.readString(external, StandardCharsets.UTF_8));
+                        parse(Files.readString(external, StandardCharsets.UTF_8)).stream()
+                                .map(p -> withOfficialIdentity(p, bundled))
+                                .toList();
                 logger.info(
                         "servers.json externo carregado de {} ({} servidor(es))",
                         external.toAbsolutePath(),
@@ -85,17 +89,59 @@ public final class ServerDirectory {
         return loadBundled();
     }
 
-    /** Trust comes from the shipped catalog, never from LAN discovery or an external label. */
+    /**
+     * Destino confiável para o fluxo de conta oficial <b>antigo</b> ({@code tchowstrick.auth.v1}).
+     * A confiança vem só do catálogo embutido, nunca da descoberta em LAN nem de um rótulo externo;
+     * e só vale para servidores <b>sem</b> identidade MSS — num servidor com identidade (inclusive
+     * o oficial, desde 05/10/2026) credenciais antigas nunca são enviadas.
+     */
     public static boolean isTrustedIdentityEndpoint(ServerPreset server) {
         return server.tls()
                 && server.official()
+                && server.identity() == null
                 && loadBundled().presets().stream()
                         .anyMatch(
                                 p ->
                                         p.official()
                                                 && p.tls()
+                                                && p.identity() == null
                                                 && p.host().equalsIgnoreCase(server.host())
                                                 && p.port() == server.port());
+    }
+
+    /**
+     * Atualiza um registro antigo (escolha salva, {@code servers.json} externo) que aponta para o
+     * servidor oficial <b>sem</b> identidade MSS: devolve o preset oficial do catálogo embutido,
+     * com a identidade dele. Qualquer outro preset volta inalterado.
+     */
+    public static ServerPreset withOfficialIdentity(ServerPreset preset) {
+        return withOfficialIdentity(preset, loadBundled());
+    }
+
+    static ServerPreset withOfficialIdentity(ServerPreset preset, ServerDirectory bundled) {
+        if (preset == null || preset.identity() != null || !preset.tls()) {
+            return preset;
+        }
+        return bundled.presets().stream()
+                .filter(
+                        p ->
+                                p.official()
+                                        && p.tls()
+                                        && p.identity() != null
+                                        && p.host().equalsIgnoreCase(preset.host())
+                                        && p.port() == preset.port())
+                .findFirst()
+                .map(
+                        p ->
+                                new ServerPreset(
+                                        p.name(),
+                                        p.host(),
+                                        p.port(),
+                                        true,
+                                        preset.isDefault(),
+                                        true,
+                                        p.identity()))
+                .orElse(preset);
     }
 
     static ServerDirectory loadBundled() {

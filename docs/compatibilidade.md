@@ -51,3 +51,11 @@ Adotado no [M1](marcos/M01-identidade-mss.md) (MSSIdentity:M4-04), em 05/10/2026
 | Testes | `IdentityClientGatewayTest` (adaptador contra serviço falso em processo); demais testes usam fake da porta `IdentityAccountGateway` |
 
 Como é `SNAPSHOT`, o build usa o que estiver instalado no Maven local: instale o `identity-client-java` (no MSSIdentity, `./mvnw install`) antes de buildar este repositório.
+
+### Destinos de produção (desde 05/10/2026)
+
+| Campo | Valor |
+|---|---|
+| Servidor oficial | `tchowstrick.minashonsoftware.com.br:443` (TLS), `tchow-server` 1.3.0 com `TCHOW_IDENTITY_MODE=remote` — só aceita acesso de jogo da identidade MSS (informado pelo orquestrador em 05/10/2026; não verificado por este repositório) |
+| Identidade | `identity.minashonsoftware.com.br:443` (TLS), só `IdentityService` |
+| Cliente | preset oficial embutido declara essa identidade (branch `feature/preset-oficial-e-multicontas`); contas `tchowstrick.auth.v1` não jogam mais no oficial |

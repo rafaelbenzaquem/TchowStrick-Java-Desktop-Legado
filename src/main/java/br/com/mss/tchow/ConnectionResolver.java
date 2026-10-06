@@ -5,6 +5,7 @@ import br.com.mss.tchow.net.NetworkConfig;
 import br.com.mss.tchow.net.config.ServerDirectory;
 import br.com.mss.tchow.net.config.ServerPreset;
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 /**
  * Lógica pura de resolução do servidor ([E4.5-04]/[E4.5-06], ADR-0014/ADR-0017) — sem Swing, sem
@@ -23,6 +24,20 @@ final class ConnectionResolver {
      */
     static ServerPreset resolveDefault(
             LaunchOptions options, ServerDirectory directory, ServerChoiceStore savedChoice) {
+        return resolveDefault(
+                options, directory, savedChoice, ServerDirectory::withOfficialIdentity);
+    }
+
+    /**
+     * Como {@link #resolveDefault(LaunchOptions, ServerDirectory, ServerChoiceStore)}; {@code
+     * upgrade} atualiza uma escolha salva antiga (oficial sem identidade MSS → preset oficial com
+     * identidade), e a escolha atualizada é regravada.
+     */
+    static ServerPreset resolveDefault(
+            LaunchOptions options,
+            ServerDirectory directory,
+            ServerChoiceStore savedChoice,
+            UnaryOperator<ServerPreset> upgrade) {
         if (options.remoteHost() != null) {
             // --server=host:porta é sempre em claro (uso LAN/dev, não passa pelo Caddy) e nunca
             // oficial (quem sabe digitar host:porta de cor não é o fluxo de conta guiado).
@@ -39,7 +54,11 @@ final class ConnectionResolver {
         if (savedChoice != null) {
             Optional<ServerPreset> remembered = savedChoice.lastChoice();
             if (remembered.isPresent()) {
-                return remembered.get();
+                ServerPreset current = upgrade.apply(remembered.get());
+                if (!current.equals(remembered.get())) {
+                    savedChoice.remember(current);
+                }
+                return current;
             }
         }
         return directory

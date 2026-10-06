@@ -21,6 +21,11 @@ public final class LocalAccountSessionStore implements AccountSessionStore {
         this(Preferences.userNodeForPackage(LocalAccountSessionStore.class).node("accountSession"));
     }
 
+    /** Sessões da conta oficial antiga do perfil local de dados {@code profile}. */
+    public LocalAccountSessionStore(DataProfile profile) {
+        this(profile.node("accountSession"));
+    }
+
     LocalAccountSessionStore(Preferences root) {
         this.root = root;
     }

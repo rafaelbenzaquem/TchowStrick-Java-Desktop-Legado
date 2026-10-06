@@ -83,4 +83,21 @@ class LaunchOptionsIdentityTest {
         assertEquals("localhost:9100", preset.identity().authority());
         assertEquals(5050, preset.port());
     }
+
+    @Test
+    void perfilLocalExplicitoENormalizado() {
+        assertEquals(
+                "perfil-2", LaunchOptions.parse(new String[] {"--perfil=Perfil-2"}).dataProfile());
+        assertEquals("padrao", LaunchOptions.parse(new String[] {"--perfil=padrão"}).dataProfile());
+        assertNull(LaunchOptions.parse(new String[0]).dataProfile());
+    }
+
+    @Test
+    void perfilLocalInvalidoERecusado() {
+        IllegalArgumentException e =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> LaunchOptions.parse(new String[] {"--perfil=../outro"}));
+        assertTrue(e.getMessage().contains("perfil local"), e.getMessage());
+    }
 }
