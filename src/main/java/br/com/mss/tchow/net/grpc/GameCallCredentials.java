@@ -53,6 +53,7 @@ final class GameCallCredentials implements ClientInterceptor {
                     case PERMISSION_DENIED -> Status.PERMISSION_DENIED;
                     case UNAVAILABLE -> Status.UNAVAILABLE;
                 };
-        return status.withDescription(e.getMessage());
+        // A causa local permite ao GrpcErrors preservar a mensagem (BUG-002).
+        return status.withDescription(e.getMessage()).withCause(e);
     }
 }

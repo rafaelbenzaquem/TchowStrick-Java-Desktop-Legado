@@ -10,6 +10,16 @@ package br.com.mss.tchow.net;
  */
 public interface AccountCredentials {
 
+    /** Origem da credencial, para escolher a mensagem certa quando o servidor a recusa. */
+    enum Source {
+        /** Sem conta (LAN ou servidor que não exige conta). */
+        NONE,
+        /** Sessão oficial antiga ({@code tchowstrick.auth.v1}), servidor sem identidade MSS. */
+        LEGACY_SESSION,
+        /** Acesso de jogo da identidade MSS. */
+        MSS_IDENTITY
+    }
+
     /**
      * Token atual; {@code ""} = chamada sem credencial de conta.
      *
@@ -28,6 +38,11 @@ public interface AccountCredentials {
 
     /** {@code true} se esta fonte nunca fornece credencial (LAN/servidor sem conta). */
     boolean isEmpty();
+
+    /** Origem da credencial; a padrão distingue só "sem conta" de sessão oficial antiga. */
+    default Source source() {
+        return isEmpty() ? Source.NONE : Source.LEGACY_SESSION;
+    }
 
     static AccountCredentials none() {
         return fixed("");

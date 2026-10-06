@@ -43,11 +43,15 @@ public final class IdentityAccountException extends RuntimeException {
     /** Mensagem padrão em português para cada tipo, quando o servidor não trouxe uma melhor. */
     public static String defaultMessage(Kind kind) {
         return switch (kind) {
-            case NOT_SIGNED_IN -> "Você não entrou na conta MSS neste servidor.";
+            case NOT_SIGNED_IN ->
+                    "Você não entrou na conta MSS neste servidor. Entre na conta MSS (Jogador →"
+                            + " Conta MSS…) para jogar.";
             case UNAUTHENTICATED ->
-                    "Sua sessão da conta MSS expirou ou foi encerrada. Entre novamente.";
+                    "Sua sessão da conta MSS expirou ou foi encerrada. Entre de novo em Jogador →"
+                            + " Conta MSS….";
             case PERMISSION_DENIED ->
-                    "Conta MSS restrita: confirme seu e-mail para continuar jogando.";
+                    "Conta MSS restrita: confirme seu e-mail em Jogador → Confirmar contato… para"
+                            + " continuar jogando.";
             case INVALID_ARGUMENT -> "Dados inválidos. Confira o nick, o e-mail ou o código.";
             case FAILED_PRECONDITION ->
                     "Operação não permitida agora (código vencido ou já usado?). Peça um novo"

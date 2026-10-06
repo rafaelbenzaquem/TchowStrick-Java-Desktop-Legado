@@ -43,6 +43,11 @@ public final class IdentityGameCredentials implements AccountCredentials {
         return false;
     }
 
+    @Override
+    public Source source() {
+        return Source.MSS_IDENTITY;
+    }
+
     static CredentialException.Reason reasonFor(IdentityAccountException.Kind kind) {
         return switch (kind) {
             case NOT_SIGNED_IN, UNAUTHENTICATED -> CredentialException.Reason.UNAUTHENTICATED;
