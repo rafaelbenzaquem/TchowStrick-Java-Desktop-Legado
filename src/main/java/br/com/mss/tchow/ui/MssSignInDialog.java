@@ -1,7 +1,6 @@
 package br.com.mss.tchow.ui;
 
 import java.awt.Component;
-import java.awt.GridLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -34,15 +33,21 @@ public final class MssSignInDialog {
         create.addActionListener(e -> nick.setEnabled(true));
         existing.addActionListener(e -> nick.setEnabled(false));
 
-        JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
-        form.add(new JLabel("Conta MSS para o servidor " + serverName));
-        form.add(create);
-        form.add(existing);
-        form.add(nickLabel);
-        form.add(nick);
-        form.add(new JLabel("E-mail:"));
-        form.add(email);
-        form.add(new JLabel("Telefone ainda não é suportado no desktop."));
+        // nome de servidor longo quebra linha; a coluna mantém a altura própria de cada linha
+        JPanel form =
+                UiSizing.column(
+                        new JLabel(
+                                UiSizing.wrappedHtml(
+                                        UiSizing.escapeHtml(
+                                                "Conta MSS para o servidor " + serverName),
+                                        UiSizing.TEXT_WIDTH)),
+                        create,
+                        existing,
+                        nickLabel,
+                        nick,
+                        new JLabel("E-mail:"),
+                        email,
+                        new JLabel("Telefone ainda não é suportado no desktop."));
 
         while (true) {
             int ok =

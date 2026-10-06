@@ -22,7 +22,7 @@ import javax.swing.border.EmptyBorder;
 public final class ProfileDialog extends JDialog {
 
     private final transient ProfileStore store;
-    private final JComboBox<PlayerProfile> combo = new JComboBox<>();
+    private final JComboBox<PlayerProfile> combo = new FittingComboBox<>();
     private transient PlayerProfile result;
 
     public ProfileDialog(Window owner, ProfileStore store) {
@@ -30,9 +30,8 @@ public final class ProfileDialog extends JDialog {
         this.store = store;
         buildUi();
         reload(store.active().orElse(null));
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo. Devolve o perfil escolhido, ou {@code null} se o usuário cancelou. */
@@ -67,12 +66,13 @@ public final class ProfileDialog extends JDialog {
         cancel.addActionListener(e -> dispose());
 
         JPanel top = new JPanel(new BorderLayout(6, 0));
-        top.setBorder(new EmptyBorder(10, 10, 6, 10));
+        top.setBorder(new EmptyBorder(12, 12, 6, 12));
         top.add(new JLabel("Perfil:"), BorderLayout.WEST);
         top.add(combo, BorderLayout.CENTER);
         top.add(create, BorderLayout.EAST);
 
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 6));
+        buttons.setBorder(new EmptyBorder(0, 6, 6, 6));
         buttons.add(ok);
         buttons.add(cancel);
 

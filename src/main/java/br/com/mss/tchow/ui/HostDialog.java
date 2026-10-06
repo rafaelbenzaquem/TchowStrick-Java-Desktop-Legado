@@ -48,13 +48,13 @@ public final class HostDialog extends JDialog {
     private final JSpinner playersSpinner = new JSpinner(new SpinnerNumberModel(2, 2, 5, 1));
 
     /** Todas as 5 cores, sempre — [E4.5-05] tira a restrição de "só as N primeiras". */
-    private final JComboBox<PlayerColor> colorCombo = new JComboBox<>(PlayerColor.values());
+    private final JComboBox<PlayerColor> colorCombo = new FittingComboBox<>(PlayerColor.values());
 
     private final JComboBox<String> adversaryCombo =
-            new JComboBox<>(
+            new FittingComboBox<>(
                     new String[] {"Humano (em rede)", "IA — Fácil", "IA — Média", "IA — Difícil"});
-    private final JTextField nickField = new JTextField(12);
-    private final JPasswordField passwordField = new JPasswordField(12);
+    private final JTextField nickField = new JTextField(18);
+    private final JPasswordField passwordField = new JPasswordField(18);
 
     private Result result;
 
@@ -64,9 +64,8 @@ public final class HostDialog extends JDialog {
         nickField.setText(
                 initialNick == null || initialNick.isBlank() ? "host" : initialNick.strip());
         buildUi();
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo (bloqueia) e devolve as escolhas, ou {@code null} se cancelado. */
@@ -86,6 +85,7 @@ public final class HostDialog extends JDialog {
 
     private void buildUi() {
         JPanel form = new JPanel(new GridBagLayout());
+        form.setBorder(UiSizing.dialogPadding());
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(4, 6, 4, 6);
         c.anchor = GridBagConstraints.WEST;
@@ -124,6 +124,7 @@ public final class HostDialog extends JDialog {
         c.gridy = row;
         c.gridwidth = 2;
         c.anchor = GridBagConstraints.CENTER;
+        c.fill = GridBagConstraints.NONE;
         form.add(buttons, c);
 
         setContentPane(form);
@@ -135,8 +136,16 @@ public final class HostDialog extends JDialog {
         c.gridx = 0;
         c.gridy = row;
         c.gridwidth = 1;
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
         form.add(new JLabel(label), c);
+        // campos da coluna da direita com a mesma largura (a do mais largo): nenhum combo ou campo
+        // fica estreito a ponto de cortar o texto
         c.gridx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
         form.add(field, c);
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
     }
 }

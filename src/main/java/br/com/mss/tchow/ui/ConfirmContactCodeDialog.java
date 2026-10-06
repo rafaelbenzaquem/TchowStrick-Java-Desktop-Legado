@@ -3,6 +3,7 @@ package br.com.mss.tchow.ui;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Window;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
@@ -26,9 +27,8 @@ public final class ConfirmContactCodeDialog extends JDialog {
     public ConfirmContactCodeDialog(Window owner, String maskedContact, Runnable onResend) {
         super(owner, "Confirmar contato", ModalityType.APPLICATION_MODAL);
         buildUi(maskedContact, onResend);
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo. {@code null} se o jogador cancelou (ou fechou sem confirmar). */
@@ -38,11 +38,14 @@ public final class ConfirmContactCodeDialog extends JDialog {
     }
 
     private void buildUi(String maskedContact, Runnable onResend) {
+        // contato longo quebra linha em vez de alargar o diálogo além da tela
         JLabel info =
                 new JLabel(
-                        "<html>Digite o código enviado pra <b>"
-                                + escapeHtml(maskedContact)
-                                + "</b>:</html>");
+                        UiSizing.wrappedHtml(
+                                "Digite o código enviado pra <b>"
+                                        + UiSizing.escapeHtml(maskedContact)
+                                        + "</b>:",
+                                UiSizing.TEXT_WIDTH));
 
         JButton resend = new JButton("Reenviar código");
         resend.addActionListener(e -> onResend.run());
@@ -53,14 +56,16 @@ public final class ConfirmContactCodeDialog extends JDialog {
         cancel.addActionListener(e -> dispose());
 
         JPanel top = new JPanel(new BorderLayout(6, 6));
+        top.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
         top.add(info, BorderLayout.NORTH);
-        JPanel field = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel field = new JPanel(new WrapLayout(FlowLayout.LEFT, 5, 5));
         field.add(new JLabel("Código:"));
         field.add(codeField);
         field.add(resend);
         top.add(field, BorderLayout.CENTER);
 
         JPanel buttons = new JPanel();
+        buttons.setBorder(BorderFactory.createEmptyBorder(0, 6, 6, 6));
         buttons.add(confirm);
         buttons.add(cancel);
 
@@ -79,11 +84,5 @@ public final class ConfirmContactCodeDialog extends JDialog {
         }
         result = new Result(code);
         dispose();
-    }
-
-    private static String escapeHtml(String value) {
-        return value == null
-                ? ""
-                : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 }

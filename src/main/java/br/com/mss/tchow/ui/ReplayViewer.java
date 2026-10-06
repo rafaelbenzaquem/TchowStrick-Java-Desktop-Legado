@@ -55,8 +55,9 @@ public final class ReplayViewer extends JDialog {
         buildUi();
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         render();
-        pack();
-        setLocationRelativeTo(owner);
+        // tabuleiro grande (12x12) numa tela pequena: a janela fica na área útil e o tabuleiro
+        // encolhe para caber (BoardView escala com o tamanho)
+        UiSizing.packWithin(this, owner);
     }
 
     private void buildUi() {

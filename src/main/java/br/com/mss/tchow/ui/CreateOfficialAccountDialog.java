@@ -4,6 +4,7 @@ import br.com.mss.tchow.net.grpc.GrpcAccountClient.DeliveryChannel;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.Window;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -27,12 +28,12 @@ public final class CreateOfficialAccountDialog extends JDialog {
             String contactValue,
             DeliveryChannel channel) {}
 
-    private final JTextField nickField = new JTextField(20);
-    private final JTextField fullNameField = new JTextField(20);
+    private final JTextField nickField = new JTextField(28);
+    private final JTextField fullNameField = new JTextField(28);
     private final JRadioButton emailOption = new JRadioButton("E-mail", true);
     private final JRadioButton phoneOption = new JRadioButton("WhatsApp (telefone E.164)");
     private final JRadioButton smsOption = new JRadioButton("SMS (telefone E.164)");
-    private final JTextField contactField = new JTextField(20);
+    private final JTextField contactField = new JTextField(28);
 
     private Result result;
 
@@ -61,9 +62,8 @@ public final class CreateOfficialAccountDialog extends JDialog {
             if (whatsappEnabled) phoneOption.setSelected(true);
             else if (smsEnabled) smsOption.setSelected(true);
         }
-        pack();
         setResizable(false);
-        setLocationRelativeTo(owner);
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo. {@code null} se o jogador cancelou. */
@@ -79,6 +79,7 @@ public final class CreateOfficialAccountDialog extends JDialog {
         contactType.add(smsOption);
 
         JPanel form = new JPanel(new GridLayout(0, 1, 4, 4));
+        form.setBorder(BorderFactory.createEmptyBorder(12, 12, 0, 12));
         form.add(new JLabel("Nick:"));
         form.add(nickField);
         form.add(new JLabel("Nome completo (opcional):"));
@@ -95,6 +96,7 @@ public final class CreateOfficialAccountDialog extends JDialog {
         cancel.addActionListener(e -> dispose());
 
         JPanel buttons = new JPanel();
+        buttons.setBorder(BorderFactory.createEmptyBorder(0, 6, 6, 6));
         buttons.add(create);
         buttons.add(cancel);
 
@@ -132,6 +134,6 @@ public final class CreateOfficialAccountDialog extends JDialog {
 
     private void warn(String message) {
         JOptionPane.showMessageDialog(
-                this, message, "Dados incompletos", JOptionPane.WARNING_MESSAGE);
+                this, UiSizing.message(message), "Dados incompletos", JOptionPane.WARNING_MESSAGE);
     }
 }

@@ -54,10 +54,10 @@ public final class JoinDialog extends JDialog {
     private final String host;
     private final int port;
     private final boolean tls;
-    private final JTextField nickField = new JTextField(14);
+    private final JTextField nickField = new JTextField(18);
     private final DefaultListModel<OpenMatchSummary> matchesModel = new DefaultListModel<>();
     private final JList<OpenMatchSummary> matchesList = new JList<>(matchesModel);
-    private final JComboBox<PlayerColor> colorCombo = new JComboBox<>();
+    private final JComboBox<PlayerColor> colorCombo = new FittingComboBox<>();
     private final JLabel passwordLabel = new JLabel("Senha:");
     private final JPasswordField passwordField = new JPasswordField(12);
     private final JLabel infoLabel = new JLabel(" ");
@@ -95,9 +95,8 @@ public final class JoinDialog extends JDialog {
         colorCombo.setEnabled(false);
         connectButton.setEnabled(false);
         setPasswordEnabled(false);
-        pack();
-        setResizable(false);
-        setLocationRelativeTo(owner);
+        // redimensionável: a lista de partidas cresce junto; o mínimo mantém tudo visível
+        UiSizing.packWithin(this, owner);
     }
 
     /** Abre o diálogo (bloqueia) e devolve as escolhas, ou {@code null} se cancelado. */
@@ -108,6 +107,7 @@ public final class JoinDialog extends JDialog {
 
     private void buildUi() {
         JPanel form = new JPanel(new GridBagLayout());
+        form.setBorder(UiSizing.dialogPadding());
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(4, 6, 4, 6);
         c.anchor = GridBagConstraints.WEST;
@@ -129,28 +129,30 @@ public final class JoinDialog extends JDialog {
         // colunas pelo conteúdo mais largo já carregado (o diálogo já foi empacotado com a lista
         // vazia, `setResizable(false)`) e o formulário inteiro se desconfigura. Texto mais longo
         // que isso rola horizontalmente dentro da lista, sem afetar o resto do diálogo.
-        matchesScroll.setPreferredSize(new Dimension(380, 100));
+        matchesScroll.setPreferredSize(new Dimension(440, 120));
+        matchesScroll.setMinimumSize(new Dimension(220, 60));
         c.gridx = 0;
         c.gridy = row++;
         c.gridwidth = 2;
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.fill = GridBagConstraints.BOTH;
+        c.weightx = 1;
+        c.weighty = 1;
         form.add(matchesScroll, c);
         c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
+        c.weighty = 0;
 
         addRow(form, c, row++, "Sua cor:", colorCombo);
 
-        c.gridx = 0;
-        c.gridy = row;
-        c.gridwidth = 1;
-        form.add(passwordLabel, c);
-        c.gridx = 1;
-        form.add(passwordField, c);
+        addRow(form, c, row, passwordLabel, passwordField);
         row++;
 
         c.gridx = 0;
         c.gridy = row++;
         c.gridwidth = 2;
+        c.fill = GridBagConstraints.HORIZONTAL;
         form.add(infoLabel, c);
+        c.fill = GridBagConstraints.NONE;
 
         JButton cancel = new JButton("Cancelar");
         JPanel buttons = new JPanel();
@@ -191,7 +193,7 @@ public final class JoinDialog extends JDialog {
 
     private void search() {
         searchButton.setEnabled(false);
-        infoLabel.setText("procurando…");
+        showInfo("procurando…");
         matchesModel.clear();
         onSelectionChanged();
 
@@ -219,7 +221,7 @@ public final class JoinDialog extends JDialog {
                     error = ex.getMessage();
                 }
                 if (matches == null) {
-                    infoLabel.setText(error);
+                    showInfo(error);
                     return;
                 }
                 applyMatches(matches);
@@ -229,7 +231,7 @@ public final class JoinDialog extends JDialog {
 
     private void applyMatches(List<OpenMatchSummary> matches) {
         matches.forEach(matchesModel::addElement);
-        infoLabel.setText(
+        showInfo(
                 matches.isEmpty()
                         ? "nenhuma partida aberta neste servidor"
                         : matches.size() + " partida(s) aberta(s) — escolha uma");
@@ -264,6 +266,16 @@ public final class JoinDialog extends JDialog {
         getRootPane().setDefaultButton(connectButton);
     }
 
+    /**
+     * Mensagem de estado/erro abaixo da lista. Erros de rede podem ser longos: quebram linha na
+     * largura da lista e a janela cresce na altura, em vez de esticar o formulário para os lados.
+     */
+    private void showInfo(String text) {
+        String value = text == null || text.isBlank() ? " " : text;
+        infoLabel.setText(UiSizing.wrappedHtml(UiSizing.escapeHtml(value), 400));
+        UiSizing.growToPreferred(this);
+    }
+
     /** Só habilita o campo de senha para partida trancada — e limpa ao desabilitar. */
     private void setPasswordEnabled(boolean enabled) {
         passwordLabel.setEnabled(enabled);
@@ -275,12 +287,23 @@ public final class JoinDialog extends JDialog {
 
     private static void addRow(
             JPanel form, GridBagConstraints c, int row, String label, java.awt.Component field) {
+        addRow(form, c, row, new JLabel(label), field);
+    }
+
+    private static void addRow(
+            JPanel form, GridBagConstraints c, int row, JLabel label, java.awt.Component field) {
         c.gridx = 0;
         c.gridy = row;
         c.gridwidth = 1;
-        form.add(new JLabel(label), c);
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
+        form.add(label, c);
         c.gridx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
         form.add(field, c);
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
     }
 
     /** "WxH · entraram/total jogadores · livres: X, Y" — 🔒 se trancada por senha. */
