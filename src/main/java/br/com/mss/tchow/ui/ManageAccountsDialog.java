@@ -109,7 +109,7 @@ public final class ManageAccountsDialog extends JDialog {
                         UiSizing.wrappedHtml(
                                 "Dados guardados só neste computador (nunca tokens). Remover apaga"
                                         + " apenas os dados locais; excluir a conta no servidor"
-                                        + " fica em Jogador → Conta MSS….",
+                                        + " fica no menu Jogador → Conta MSS…",
                                 HINT_WIDTH));
         JPanel content = new JPanel(new BorderLayout(6, 6));
         content.setBorder(UiSizing.dialogPadding());
