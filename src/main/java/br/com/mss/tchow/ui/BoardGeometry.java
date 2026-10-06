@@ -38,6 +38,32 @@ public record BoardGeometry(int width, int height, int cell, int margin, int hit
     }
 
     /**
+     * Geometria com a mesma proporção da padrão (margem e tolerância relativas à célula), com a
+     * maior célula — de no mínimo {@code minCell} e no máximo {@code maxCell} — que cabe em {@code
+     * availableWidth}×{@code availableHeight} pixels.
+     */
+    public static BoardGeometry fitting(
+            int width,
+            int height,
+            int availableWidth,
+            int availableHeight,
+            int minCell,
+            int maxCell) {
+        // tamanho total = célula × (quadros + 2 × margem/célula)
+        int byWidth = availableWidth * DEFAULT_CELL / (width * DEFAULT_CELL + 2 * DEFAULT_MARGIN);
+        int byHeight =
+                availableHeight * DEFAULT_CELL / (height * DEFAULT_CELL + 2 * DEFAULT_MARGIN);
+        int cell = Math.max(minCell, Math.min(maxCell, Math.min(byWidth, byHeight)));
+        cell = Math.max(1, cell);
+        return new BoardGeometry(
+                width,
+                height,
+                cell,
+                cell * DEFAULT_MARGIN / DEFAULT_CELL,
+                Math.max(1, cell * DEFAULT_HIT_RADIUS / DEFAULT_CELL));
+    }
+
+    /**
      * Centro, em pixels, do ponto ({@code dotRow} em [0, height], {@code dotCol} em [0, width]).
      */
     public Point dotCenter(int dotRow, int dotCol) {

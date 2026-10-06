@@ -7,6 +7,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -24,6 +25,9 @@ import javax.swing.Timer;
 /**
  * Tela de abertura: um mini tabuleiro que se preenche sozinho em loop, com o título por cima.
  * Animação por {@link javax.swing.Timer} (roda na EDT). Um clique congela o desenho.
+ *
+ * <p>Título, subtítulo e dica do rodapé são posicionados pelas métricas da fonte; o tabuleiro ocupa
+ * só a faixa livre entre eles (encolhendo se preciso), então texto e desenho nunca se sobrepõem.
  */
 public final class SplashPanel extends JComponent {
 
@@ -35,7 +39,20 @@ public final class SplashPanel extends JComponent {
     private static final Color DOT = new Color(0x6A, 0x72, 0x80);
     private static final Color EDGE_FREE = new Color(0x3A, 0x3E, 0x48);
 
-    private final BoardGeometry geometry = new BoardGeometry(COLS, ROWS, 34, 26, 8);
+    private static final String TITLE_TEXT = "TchowStrick";
+    private static final String SUBTITLE_TEXT = "jogo dos pontinhos";
+    private static final String HINT_TEXT = "use o menu “Partida” para hospedar ou entrar";
+
+    /** Espaço entre blocos (texto/tabuleiro/borda), em pixels lógicos. */
+    private static final int GAP = 12;
+
+    private static final int PREFERRED_CELL = 34;
+    private static final int MAX_CELL = 48;
+
+    /** Geometria de referência (só a lista de arestas e o tamanho preferido). */
+    private final BoardGeometry geometry =
+            BoardGeometry.fitting(COLS, ROWS, 0, 0, PREFERRED_CELL, PREFERRED_CELL);
+
     private final Random random = new Random();
     private final List<Edge> order = new ArrayList<>();
 
@@ -51,9 +68,6 @@ public final class SplashPanel extends JComponent {
         setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 13));
         order.addAll(geometry.allEdges());
         reshuffle();
-
-        Dimension boardSize = geometry.preferredSize();
-        setPreferredSize(new Dimension(boardSize.width + 80, boardSize.height + 150));
 
         addMouseListener(
                 new MouseAdapter() {
@@ -125,6 +139,50 @@ public final class SplashPanel extends JComponent {
         }
     }
 
+    private Font titleFont() {
+        return getFont().deriveFont(Font.BOLD, 34f);
+    }
+
+    private Font subtitleFont() {
+        return getFont().deriveFont(Font.PLAIN, 13f);
+    }
+
+    /** Altura ocupada pelo título + subtítulo (a partir do topo) e pela dica (até a base). */
+    private int headerHeight() {
+        FontMetrics title = getFontMetrics(titleFont());
+        FontMetrics subtitle = getFontMetrics(subtitleFont());
+        return GAP + title.getHeight() + subtitle.getHeight();
+    }
+
+    private int footerHeight() {
+        return getFontMetrics(subtitleFont()).getHeight() + GAP;
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        if (isPreferredSizeSet()) {
+            return super.getPreferredSize();
+        }
+        Dimension board = geometry.preferredSize();
+        int textWidth =
+                Math.max(
+                        getFontMetrics(titleFont()).stringWidth(TITLE_TEXT),
+                        getFontMetrics(subtitleFont()).stringWidth(HINT_TEXT));
+        return new Dimension(
+                Math.max(board.width, textWidth) + 4 * GAP,
+                headerHeight() + board.height + footerHeight());
+    }
+
+    @Override
+    public Dimension getMinimumSize() {
+        if (isMinimumSizeSet()) {
+            return super.getMinimumSize();
+        }
+        return new Dimension(
+                getFontMetrics(subtitleFont()).stringWidth(HINT_TEXT) + 2 * GAP,
+                headerHeight() + footerHeight());
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
@@ -133,12 +191,23 @@ public final class SplashPanel extends JComponent {
             g2.setColor(BACKGROUND);
             g2.fillRect(0, 0, getWidth(), getHeight());
 
-            Dimension boardSize = geometry.preferredSize();
-            int ox = (getWidth() - boardSize.width) / 2;
-            int oy = (getHeight() - boardSize.height) / 2 + 26;
-            g2.translate(ox, oy);
-            paintBoard(g2);
-            g2.translate(-ox, -oy);
+            int top = headerHeight();
+            int bottom = getHeight() - footerHeight();
+            int available = bottom - top;
+            if (available > 0) {
+                BoardGeometry fitted =
+                        BoardGeometry.fitting(
+                                COLS, ROWS, getWidth() - 2 * GAP, available, 1, MAX_CELL);
+                Dimension boardSize = fitted.preferredSize();
+                // abaixo de ~8 px por célula o desenho vira ruído: só o texto aparece
+                if (fitted.cell() >= 8 && boardSize.height <= available) {
+                    int ox = (getWidth() - boardSize.width) / 2;
+                    int oy = top + (available - boardSize.height) / 2;
+                    g2.translate(ox, oy);
+                    paintBoard(g2, fitted);
+                    g2.translate(-ox, -oy);
+                }
+            }
 
             paintText(g2);
         } finally {
@@ -146,7 +215,7 @@ public final class SplashPanel extends JComponent {
         }
     }
 
-    private void paintBoard(Graphics2D g2) {
+    private void paintBoard(Graphics2D g2, BoardGeometry geometry) {
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 PlayerColor owner = board.owner(r, c);
@@ -159,9 +228,10 @@ public final class SplashPanel extends JComponent {
         }
         for (Edge edge : geometry.allEdges()) {
             PlayerColor owner = board.edgeOwner(edge);
+            float scale = geometry.cell() / (float) PREFERRED_CELL;
             g2.setStroke(
                     new BasicStroke(
-                            owner != null ? 4f : 1.5f,
+                            Math.max(1f, (owner != null ? 4f : 1.5f) * scale),
                             BasicStroke.CAP_ROUND,
                             BasicStroke.JOIN_ROUND));
             g2.setColor(owner != null ? PlayerColors.awt(owner) : EDGE_FREE);
@@ -169,23 +239,29 @@ public final class SplashPanel extends JComponent {
             g2.drawLine(segment[0].x, segment[0].y, segment[1].x, segment[1].y);
         }
         g2.setColor(DOT);
+        int radius = Math.max(2, Math.round(3f * geometry.cell() / PREFERRED_CELL));
         for (int r = 0; r <= ROWS; r++) {
             for (int c = 0; c <= COLS; c++) {
                 Point p = geometry.dotCenter(r, c);
-                g2.fillOval(p.x - 3, p.y - 3, 6, 6);
+                g2.fillOval(p.x - radius, p.y - radius, 2 * radius, 2 * radius);
             }
         }
     }
 
     private void paintText(Graphics2D g2) {
+        FontMetrics title = getFontMetrics(titleFont());
+        FontMetrics subtitle = getFontMetrics(subtitleFont());
+        int titleBaseline = GAP + title.getAscent();
+        int subtitleBaseline = titleBaseline + title.getDescent() + subtitle.getAscent();
+
         g2.setColor(TITLE);
-        g2.setFont(getFont().deriveFont(Font.BOLD, 34f));
-        drawCentered(g2, "TchowStrick", 46);
+        g2.setFont(titleFont());
+        drawCentered(g2, TITLE_TEXT, titleBaseline);
 
         g2.setColor(SUBTITLE);
-        g2.setFont(getFont().deriveFont(Font.PLAIN, 13f));
-        drawCentered(g2, "jogo dos pontinhos", 68);
-        drawCentered(g2, "use o menu “Partida” para hospedar ou entrar", getHeight() - 24);
+        g2.setFont(subtitleFont());
+        drawCentered(g2, SUBTITLE_TEXT, subtitleBaseline);
+        drawCentered(g2, HINT_TEXT, getHeight() - GAP - subtitle.getDescent());
     }
 
     private void drawCentered(Graphics2D g2, String text, int y) {

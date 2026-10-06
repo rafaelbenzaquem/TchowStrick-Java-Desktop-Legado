@@ -11,11 +11,15 @@ import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Stroke;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Objects;
 import java.util.function.Consumer;
 import javax.swing.JComponent;
+import javax.swing.JViewport;
+import javax.swing.Scrollable;
+import javax.swing.SwingConstants;
 
 /**
  * Componente Swing que desenha um {@link Board} com pintura vetorial (sem imagens): pontos, arestas
@@ -23,24 +27,30 @@ import javax.swing.JComponent;
  *
  * <p>É puramente visual: não conhece {@code GameEngine}, turnos nem rede. Ao clicar numa aresta
  * livre, chama o {@code edgeClickHandler} registrado.
+ *
+ * <p>O desenho acompanha o tamanho do componente: a célula cresce ou encolhe (entre {@link
+ * #MIN_CELL} e {@link #MAX_CELL}) para caber, centralizada, e traços/pontos escalam junto. Dentro
+ * de um {@code JScrollPane}, só aparecem barras de rolagem abaixo do tamanho mínimo.
  */
-public final class BoardView extends JComponent {
+public final class BoardView extends JComponent implements Scrollable {
+
+    /** Menor célula (pixels lógicos) antes de o tabuleiro passar a rolar. */
+    static final int MIN_CELL = 24;
+
+    /** Maior célula: tabuleiros pequenos em janelas grandes não viram quadros gigantes. */
+    static final int MAX_CELL = 96;
 
     private static final Color BACKGROUND = new Color(0xFA, 0xFA, 0xFA);
     private static final Color DOT = new Color(0x37, 0x37, 0x37);
     private static final Color EDGE_FREE = new Color(0xDD, 0xDD, 0xDD);
     private static final Color EDGE_HOVER = new Color(0x90, 0x90, 0x90);
-    private static final int DOT_RADIUS = 4;
-    private static final BasicStroke MARKED_STROKE =
-            new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
-    private static final BasicStroke FREE_STROKE = new BasicStroke(2f);
-    private static final BasicStroke HALO_STROKE =
-            new BasicStroke(12f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     private static final Color LAST_MOVE_HALO = new Color(0, 0, 0, 48);
 
     private final int boardWidth;
     private final int boardHeight;
-    private final BoardGeometry geometry;
+
+    /** Geometria no tamanho padrão: define o tamanho preferido. */
+    private final BoardGeometry preferredGeometry;
 
     private transient Board board;
     private transient Edge hovered;
@@ -51,7 +61,7 @@ public final class BoardView extends JComponent {
     public BoardView(int boardWidth, int boardHeight) {
         this.boardWidth = boardWidth;
         this.boardHeight = boardHeight;
-        this.geometry = new BoardGeometry(boardWidth, boardHeight);
+        this.preferredGeometry = new BoardGeometry(boardWidth, boardHeight);
         setOpaque(true);
         setBackground(BACKGROUND);
 
@@ -114,7 +124,39 @@ public final class BoardView extends JComponent {
 
     @Override
     public Dimension getPreferredSize() {
-        return geometry.preferredSize();
+        if (isPreferredSizeSet()) {
+            return super.getPreferredSize();
+        }
+        // Num JScrollPane, o tamanho pedido ao painel vem de getPreferredScrollableViewportSize;
+        // aqui vale o mínimo, que é o tamanho usado na direção em que o viewport não comporta o
+        // tabuleiro (rola com a menor célula, em vez de ficar enorme e centralizado fora da vista).
+        return getParent() instanceof JViewport
+                ? getMinimumSize()
+                : preferredGeometry.preferredSize();
+    }
+
+    @Override
+    public Dimension getMinimumSize() {
+        if (isMinimumSizeSet()) {
+            return super.getMinimumSize();
+        }
+        return BoardGeometry.fitting(boardWidth, boardHeight, 0, 0, MIN_CELL, MIN_CELL)
+                .preferredSize();
+    }
+
+    /** Geometria para o tamanho atual do componente (centralizada por {@link #origin}). */
+    BoardGeometry currentGeometry() {
+        int w = getWidth() > 0 ? getWidth() : getPreferredSize().width;
+        int h = getHeight() > 0 ? getHeight() : getPreferredSize().height;
+        return BoardGeometry.fitting(boardWidth, boardHeight, w, h, MIN_CELL, MAX_CELL);
+    }
+
+    /** Deslocamento que centraliza a grade de {@code geometry} no componente. */
+    private Point origin(BoardGeometry geometry) {
+        Dimension size = geometry.preferredSize();
+        return new Point(
+                Math.max(0, (getWidth() - size.width) / 2),
+                Math.max(0, (getHeight() - size.height) / 2));
     }
 
     @Override
@@ -125,15 +167,28 @@ public final class BoardView extends JComponent {
             g2.setColor(getBackground());
             g2.fillRect(0, 0, getWidth(), getHeight());
 
-            paintCapturedBoxes(g2);
-            paintEdges(g2);
-            paintDots(g2);
+            BoardGeometry geometry = currentGeometry();
+            Point origin = origin(geometry);
+            g2.translate(origin.x, origin.y);
+            paintCapturedBoxes(g2, geometry);
+            paintEdges(g2, geometry);
+            paintDots(g2, geometry);
         } finally {
             g2.dispose();
         }
     }
 
-    private void paintCapturedBoxes(Graphics2D g2) {
+    /**
+     * Traço proporcional à célula; na célula padrão (56) mede {@code atDefaultCell}, como antes.
+     */
+    private static Stroke stroke(BoardGeometry geometry, float atDefaultCell, boolean round) {
+        float width = Math.max(1f, atDefaultCell * geometry.cell() / BoardGeometry.DEFAULT_CELL);
+        return round
+                ? new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+                : new BasicStroke(width);
+    }
+
+    private void paintCapturedBoxes(Graphics2D g2, BoardGeometry geometry) {
         if (board == null) {
             return;
         }
@@ -149,37 +204,41 @@ public final class BoardView extends JComponent {
         }
     }
 
-    private void paintEdges(Graphics2D g2) {
+    private void paintEdges(Graphics2D g2, BoardGeometry geometry) {
+        Stroke marked = stroke(geometry, 6f, true);
+        Stroke free = stroke(geometry, 2f, false);
+        Stroke halo = stroke(geometry, 12f, true);
         for (Edge edge : geometry.allEdges()) {
             PlayerColor owner = board == null ? null : board.edgeOwner(edge);
             Point[] segment = geometry.edgeSegment(edge);
 
             if (owner != null && edge.equals(lastMove)) {
-                g2.setStroke(HALO_STROKE);
+                g2.setStroke(halo);
                 g2.setColor(LAST_MOVE_HALO);
                 g2.drawLine(segment[0].x, segment[0].y, segment[1].x, segment[1].y);
             }
 
             if (owner != null) {
-                g2.setStroke(MARKED_STROKE);
+                g2.setStroke(marked);
                 g2.setColor(PlayerColors.awt(owner));
             } else if (edge.equals(hovered)) {
-                g2.setStroke(MARKED_STROKE);
+                g2.setStroke(marked);
                 g2.setColor(EDGE_HOVER);
             } else {
-                g2.setStroke(FREE_STROKE);
+                g2.setStroke(free);
                 g2.setColor(EDGE_FREE);
             }
             g2.drawLine(segment[0].x, segment[0].y, segment[1].x, segment[1].y);
         }
     }
 
-    private void paintDots(Graphics2D g2) {
+    private void paintDots(Graphics2D g2, BoardGeometry geometry) {
+        int radius = Math.max(2, Math.round(4f * geometry.cell() / BoardGeometry.DEFAULT_CELL));
         g2.setColor(DOT);
         for (int r = 0; r <= boardHeight; r++) {
             for (int c = 0; c <= boardWidth; c++) {
                 Point p = geometry.dotCenter(r, c);
-                g2.fillOval(p.x - DOT_RADIUS, p.y - DOT_RADIUS, 2 * DOT_RADIUS, 2 * DOT_RADIUS);
+                g2.fillOval(p.x - radius, p.y - radius, 2 * radius, 2 * radius);
             }
         }
     }
@@ -188,8 +247,39 @@ public final class BoardView extends JComponent {
         if (!interactive) {
             return null;
         }
-        return geometry.edgeAt(point)
+        BoardGeometry geometry = currentGeometry();
+        Point origin = origin(geometry);
+        return geometry.edgeAt(new Point(point.x - origin.x, point.y - origin.y))
                 .filter(edge -> board == null || board.edgeOwner(edge) == null)
                 .orElse(null);
+    }
+
+    // --- Scrollable: acompanha o viewport enquanto ele comportar o tamanho mínimo ---------
+
+    @Override
+    public Dimension getPreferredScrollableViewportSize() {
+        return isPreferredSizeSet() ? super.getPreferredSize() : preferredGeometry.preferredSize();
+    }
+
+    @Override
+    public int getScrollableUnitIncrement(Rectangle visible, int orientation, int direction) {
+        return MIN_CELL;
+    }
+
+    @Override
+    public int getScrollableBlockIncrement(Rectangle visible, int orientation, int direction) {
+        return orientation == SwingConstants.HORIZONTAL ? visible.width : visible.height;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportWidth() {
+        return getParent() instanceof JViewport viewport
+                && viewport.getWidth() >= getMinimumSize().width;
+    }
+
+    @Override
+    public boolean getScrollableTracksViewportHeight() {
+        return getParent() instanceof JViewport viewport
+                && viewport.getHeight() >= getMinimumSize().height;
     }
 }
