@@ -169,7 +169,7 @@ public final class SplashPanel extends JComponent {
                         getFontMetrics(titleFont()).stringWidth(TITLE_TEXT),
                         getFontMetrics(subtitleFont()).stringWidth(HINT_TEXT));
         return new Dimension(
-                Math.max(board.width, textWidth) + 4 * GAP,
+                Math.max(board.width, textWidth) + 4 * GAP + 200,
                 headerHeight() + board.height + footerHeight());
     }
 
