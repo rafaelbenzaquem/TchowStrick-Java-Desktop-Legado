@@ -2,17 +2,17 @@
 id: BUG-001
 tipo: bug
 titulo: GUI Swing com botões cortados, texto sobre o desenho, chips/botões sumindo e janelas maiores que a tela
-status: corrigido
+status: validado
 severidade: S3
 prioridade: P1
 depende_de: []
 relacionados: [M1]
 evidencia: verificado
-branch: fix/dimensionamento-gui
-integracao: branch
-validacao: pendente
+branch: fix/dimensionamento-gui; ajuste em fix/largura-tela-inicial
+integracao: "integrado (PR #4, e856296); ajuste da largura da tela inicial em fix/largura-tela-inicial"
+validacao: "aprovada pelo responsável em 08/10/2026, com a largura da tela inicial aumentada em 200 px"
 versao:
-atualizado_em: 2026-10-05
+atualizado_em: 2026-10-08
 ---
 
 # BUG-001 — Dimensionamento da GUI
@@ -69,7 +69,11 @@ Textos funcionais e comportamento mantidos; mudanças de disposição: na partid
 - Testes headless `GuiSizingTest` (geometria ajustada, tabuleiro acompanha o viewport, `WrapLayout`, chips, quebra de mensagens, limite à área útil) e `./mvnw -B -o clean verify`.
 - Não verificado visualmente: diálogos que só abrem com rede ou estado real (fluxos de conta contra a identidade, `JFileChooser`, diálogos de entrada simples); suas mensagens usam o mesmo `UiSizing.message` coberto pelo harness. Barra de título (decoração do sistema) não aparece nas capturas.
 
-## Validação manual (pendente)
+## Validação manual
+
+**Aprovada pelo responsável em 08/10/2026** (documentado): tamanhos de janelas e diálogos conferidos. Ajuste feito pelo responsável durante a validação: `SplashPanel.getPreferredSize` ganha 200 px de largura (`+ 4 * GAP + 200`), deixando a janela principal mais larga na tela inicial; registrado na branch `fix/largura-tela-inicial`.
+
+Roteiro usado:
 
 Rodar o cliente desta branch (`./mvnw -o package -DskipTests` e `java -jar target/tchowstrick.jar`; para 200%: `java -Dsun.java2d.uiScale=2 -jar target/tchowstrick.jar`) e conferir:
 

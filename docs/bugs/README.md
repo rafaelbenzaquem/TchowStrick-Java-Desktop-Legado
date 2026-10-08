@@ -11,6 +11,6 @@ Registro no formato do [padrão MSS](../../../docs/padroes/documentacao.md) §7.
 
 | ID | Resumo | Sev. | Prio. | Origem | Status | Correção | Fonte |
 |---|---|---|---|---|---|---|---|
-| BUG-001 | GUI Swing com botões cortados, texto sobre o desenho, chips/botões sumindo e janelas maiores que a tela | S3 | P1 | revisão (pedido do responsável) | corrigido (branch) | `fix/dimensionamento-gui` | [BUG-001](BUG-001-dimensionamento-gui.md) |
+| BUG-001 | GUI Swing com botões cortados, texto sobre o desenho, chips/botões sumindo e janelas maiores que a tela | S3 | P1 | revisão (pedido do responsável) | validado (08/10/2026) | `fix/dimensionamento-gui` (PR #4); ajuste em `fix/largura-tela-inicial` | [BUG-001](BUG-001-dimensionamento-gui.md) |
 
 Próximo ID livre: **BUG-002**.
