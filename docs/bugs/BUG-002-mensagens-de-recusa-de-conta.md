@@ -12,7 +12,7 @@ branch: fix/mensagens-conta-mss
 integracao: branch
 validacao: pendente
 versao:
-atualizado_em: 2026-10-06
+atualizado_em: 2026-10-08
 ---
 
 # BUG-002 — Recusa de conta MSS mascarada como sessão expirada
@@ -27,7 +27,7 @@ atualizado_em: 2026-10-06
 
 ## Ambiente
 
-Cliente desktop `main` @ `e856296` contra o servidor oficial com `TCHOW_IDENTITY_MODE=remote` (relato). Achados C1 (mapeamento de erros) e C4 (conta oficial antiga contra servidor com identidade) da revisão de 06/10/2026.
+Cliente desktop `main` @ `e856296` contra o servidor oficial que deveria estar em `TCHOW_IDENTITY_MODE=remote` (relato). **Conferido em 08/10/2026:** o oficial estava em `local` (sem a variável no `.env`), por isso recusava o acesso da identidade (TchowStrick:BUG-024); produção passou a `hybrid` e foi validada pelo responsável. As mensagens enganosas corrigidas aqui continuam válidas para qualquer recusa. Achados C1 (mapeamento de erros) e C4 (conta oficial antiga contra servidor com identidade) da revisão de 06/10/2026.
 
 ## Reprodução
 
