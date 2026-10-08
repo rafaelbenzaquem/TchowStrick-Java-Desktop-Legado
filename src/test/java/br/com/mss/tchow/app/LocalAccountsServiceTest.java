@@ -97,7 +97,7 @@ class LocalAccountsServiceTest {
         assertEquals("Ana", mssEntry.name());
         assertEquals("an***@***.com", mssEntry.account());
         assertEquals("identity.minashonsoftware.com.br:443 (TLS)", mssEntry.destination());
-        assertEquals("ativa", mssEntry.state());
+        assertEquals("ativa" + LocalAccountsService.LAST_KNOWN, mssEntry.state());
         assertEquals(Usage.THIS_WINDOW, mssEntry.usage());
         assertEquals("padrão", mssEntry.dataProfileLabel());
 

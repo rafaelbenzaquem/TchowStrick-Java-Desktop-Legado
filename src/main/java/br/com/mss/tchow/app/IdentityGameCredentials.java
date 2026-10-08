@@ -43,6 +43,21 @@ public final class IdentityGameCredentials implements AccountCredentials {
         return false;
     }
 
+    @Override
+    public Source source() {
+        return Source.MSS_IDENTITY;
+    }
+
+    /** O servidor de jogo disse que a conta está restrita: guarda o estado para a UI. */
+    @Override
+    public void accountRestricted() {
+        try {
+            gateway.markRestricted();
+        } catch (RuntimeException e) {
+            // só atualiza o estado exibido; a recusa em si já chega ao jogador
+        }
+    }
+
     static CredentialException.Reason reasonFor(IdentityAccountException.Kind kind) {
         return switch (kind) {
             case NOT_SIGNED_IN, UNAUTHENTICATED -> CredentialException.Reason.UNAUTHENTICATED;

@@ -42,9 +42,9 @@ public final class ConfirmContactCodeDialog extends JDialog {
         JLabel info =
                 new JLabel(
                         UiSizing.wrappedHtml(
-                                "Digite o código enviado pra <b>"
+                                "Digite o código enviado para <b>"
                                         + UiSizing.escapeHtml(maskedContact)
-                                        + "</b>:",
+                                        + "</b> (não chegou? Confira o spam ou peça outro):",
                                 UiSizing.TEXT_WIDTH));
 
         JButton resend = new JButton("Reenviar código");

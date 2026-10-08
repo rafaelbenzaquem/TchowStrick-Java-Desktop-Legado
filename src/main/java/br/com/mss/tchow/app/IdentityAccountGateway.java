@@ -71,8 +71,47 @@ public interface IdentityAccountGateway extends AutoCloseable {
     /** Sessão guardada localmente, sem rede. Vazio = não entrou neste destino. */
     Optional<AccountStatus> currentAccount();
 
-    /** Renova a sessão se estiver perto de expirar e devolve o estado atualizado. */
+    /**
+     * Estado atual da conta, consultado na identidade (BUG-003): renova a sessão só se estiver
+     * perto de expirar, confere no perfil se o contato já foi confirmado e, sem confirmação, deriva
+     * PROVISIONAL/RESTRICTED pela carência ({@link #GRACE_PERIOD}); o estado derivado fica
+     * guardado.
+     */
     AccountStatus refreshStatus();
+
+    /**
+     * O servidor de jogo recusou a conta por contato não confirmado: guarda o estado RESTRICTED na
+     * sessão local (sem rede). Sem sessão, não faz nada.
+     */
+    void markRestricted();
+
+    /** Carência da identidade MSS para confirmar o contato (MSSIdentity D4). */
+    java.time.Duration GRACE_PERIOD = java.time.Duration.ofHours(1);
+
+    /**
+     * Estado a exibir quando a identidade não informa: contato confirmado → ACTIVE; RESTRICTED
+     * guardado continua RESTRICTED; PROVISIONAL vira RESTRICTED depois da carência contada de
+     * {@code provisionalSince} (primeira vez em que este dispositivo viu a conta provisória — a
+     * conta é no máximo tão nova quanto isso, então a restrição derivada nunca é precoce). Vazio:
+     * sem referência de tempo, só a identidade sabe.
+     */
+    static Optional<AccountState> deriveState(
+            AccountState stored,
+            boolean contactVerified,
+            Optional<Instant> provisionalSince,
+            Instant now) {
+        if (contactVerified || stored == AccountState.ACTIVE) {
+            return Optional.of(AccountState.ACTIVE);
+        }
+        if (stored == AccountState.RESTRICTED) {
+            return Optional.of(AccountState.RESTRICTED);
+        }
+        return provisionalSince.map(
+                since ->
+                        now.isBefore(since.plus(GRACE_PERIOD))
+                                ? AccountState.PROVISIONAL
+                                : AccountState.RESTRICTED);
+    }
 
     Profile profile();
 

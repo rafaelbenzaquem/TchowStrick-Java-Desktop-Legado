@@ -66,6 +66,19 @@ public final class MssAccountFlow {
     }
 
     /**
+     * Aviso depois de criar a conta (BUG-003). Não afirma que o código foi enviado: a identidade
+     * responde igual quando não consegue entregar (anti-enumeração), então só promete o código se o
+     * e-mail estiver correto.
+     */
+    static String signUpMessage(String email) {
+        return "Conta MSS criada. Se o e-mail "
+                + email
+                + " estiver correto, você receberá um código em instantes; confira o spam. Sem"
+                + " código? Peça outro. Confirme o e-mail para continuar jogando depois da"
+                + " carência de 1 hora.";
+    }
+
+    /**
      * Entrar ou criar conta. Devolve a conta com sessão guardada, ou vazio se o jogador desistiu ou
      * houve erro (já avisado).
      */
@@ -95,10 +108,7 @@ public final class MssAccountFlow {
             }
             SignUp signUp = gateway.signUp(choice.nick().strip(), email);
             if (signUp.account().isPresent()) {
-                prompts.info(
-                        "Conta MSS criada. Enviamos um código para "
-                                + email
-                                + "; confirme-o para manter o acesso depois da carência.");
+                prompts.info(signUpMessage(email));
                 Challenge verify =
                         signUp.challenge()
                                 .filter(c -> c.purpose() == Purpose.VERIFY_CONTACT)
@@ -225,7 +235,10 @@ public final class MssAccountFlow {
                 () -> {
                     try {
                         current.set(gateway.requestCode(email, purpose));
-                        prompts.info("Código reenviado (sujeito aos limites de envio).");
+                        prompts.info(
+                                "Novo código pedido. Se o e-mail estiver correto, ele chega em"
+                                        + " instantes (sujeito aos limites de envio); confira o"
+                                        + " spam.");
                     } catch (IdentityAccountException e) {
                         prompts.warn(e.getMessage());
                     }

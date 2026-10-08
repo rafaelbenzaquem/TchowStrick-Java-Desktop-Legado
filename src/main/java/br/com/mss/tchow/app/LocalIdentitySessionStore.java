@@ -24,6 +24,8 @@ public final class LocalIdentitySessionStore implements IdentitySessionStore {
     private static final String KEY_TARGET_HOST = "identityHost";
     private static final String KEY_TARGET_PORT = "identityPort";
     private static final String KEY_TARGET_TLS = "identityTls";
+    private static final String KEY_PROVISIONAL_SINCE = "provisionalSince";
+    private static final String KEY_PROVISIONAL_ACCOUNT = "provisionalAccountId";
 
     /** Nome do nó-filho, dentro de cada perfil local, que guarda as sessões MSS. */
     static final String NODE = "mssIdentitySession";
@@ -198,6 +200,38 @@ public final class LocalIdentitySessionStore implements IdentitySessionStore {
                 node.put(KEY_CONTACT, maskedContact.strip());
             }
         }
+        try {
+            node.flush();
+        } catch (BackingStoreException e) {
+            // best-effort
+        }
+    }
+
+    @Override
+    public synchronized Optional<java.time.Instant> provisionalSince(String accountId) {
+        try {
+            if (accountId == null || !root.nodeExists(nodeName)) {
+                return Optional.empty();
+            }
+        } catch (BackingStoreException e) {
+            return Optional.empty();
+        }
+        Preferences node = root.node(nodeName);
+        long epoch = node.getLong(KEY_PROVISIONAL_SINCE, 0);
+        if (epoch <= 0 || !accountId.equals(node.get(KEY_PROVISIONAL_ACCOUNT, ""))) {
+            return Optional.empty();
+        }
+        return Optional.of(java.time.Instant.ofEpochSecond(epoch));
+    }
+
+    @Override
+    public synchronized void rememberProvisionalSince(String accountId, java.time.Instant at) {
+        if (accountId == null || at == null) {
+            return;
+        }
+        Preferences node = root.node(nodeName);
+        node.putLong(KEY_PROVISIONAL_SINCE, at.getEpochSecond());
+        node.put(KEY_PROVISIONAL_ACCOUNT, accountId);
         try {
             node.flush();
         } catch (BackingStoreException e) {
