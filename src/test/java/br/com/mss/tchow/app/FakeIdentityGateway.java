@@ -95,6 +95,18 @@ class FakeIdentityGateway implements IdentityAccountGateway {
     }
 
     @Override
+    public void markRestricted() {
+        calls.add("markRestricted");
+        if (session != null) {
+            session =
+                    new AccountStatus(
+                            session.accountId(),
+                            AccountState.RESTRICTED,
+                            session.sessionExpiresAt());
+        }
+    }
+
+    @Override
     public void invalidateGameAccess() {
         calls.add("invalidate");
         accessSerial++;

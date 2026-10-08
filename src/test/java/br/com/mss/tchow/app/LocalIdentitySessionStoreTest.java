@@ -49,6 +49,21 @@ class LocalIdentitySessionStoreTest {
     }
 
     @Test
+    void referenciaDaCarenciaEPorContaESaiComASessao() {
+        var store = new LocalIdentitySessionStore(root, LOCAL);
+        store.save(new StoredIdentitySession("tok-1", "acc-1", 1_900_000_000L, "PROVISIONAL"));
+        var at = java.time.Instant.ofEpochSecond(1_800_000_000L);
+
+        store.rememberProvisionalSince("acc-1", at);
+
+        var reopened = new LocalIdentitySessionStore(root, LOCAL);
+        assertEquals(at, reopened.provisionalSince("acc-1").orElseThrow());
+        assertTrue(reopened.provisionalSince("acc-2").isEmpty());
+        reopened.clear();
+        assertTrue(new LocalIdentitySessionStore(root, LOCAL).provisionalSince("acc-1").isEmpty());
+    }
+
+    @Test
     void sessaoDeUmDestinoNaoVazaParaOutro() {
         new LocalIdentitySessionStore(root, LOCAL)
                 .save(new StoredIdentitySession("tok-local", "acc", 1L, "PROVISIONAL"));

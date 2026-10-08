@@ -180,6 +180,9 @@ public final class LocalAccountsService {
         }
     }
 
+    /** Sufixo do estado MSS: a lista lê só os dados locais, sem consultar a identidade. */
+    static final String LAST_KNOWN = " (último estado conhecido)";
+
     private String mssState(StoredIdentitySession session) {
         String state =
                 switch (session.state()) {
@@ -188,7 +191,7 @@ public final class LocalAccountsService {
                     case "PROVISIONAL" -> "provisória";
                     default -> session.state().toLowerCase(java.util.Locale.ROOT);
                 };
-        return expired(session.expiresAtEpochSeconds()) ? "expirada" : state;
+        return expired(session.expiresAtEpochSeconds()) ? "expirada" : state + LAST_KNOWN;
     }
 
     private void legacyEntries(String profile, Preferences root, Usage usage, List<Entry> out) {

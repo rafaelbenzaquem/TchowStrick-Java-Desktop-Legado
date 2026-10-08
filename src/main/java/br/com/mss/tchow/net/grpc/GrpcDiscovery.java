@@ -155,7 +155,8 @@ public final class GrpcDiscovery implements MatchDiscovery {
                             host,
                             port,
                             e,
-                            "não consegui criar a partida em " + host + ":" + port);
+                            "não consegui criar a partida em " + host + ":" + port,
+                            credentials.source());
             logger.warn(
                     "falha ao criar partida em {}:{} (tls={}): {}", host, port, tls, message, e);
             throw new TransportException(message, e);
@@ -215,7 +216,8 @@ public final class GrpcDiscovery implements MatchDiscovery {
                             host,
                             port,
                             e,
-                            "não consegui buscar suas estatísticas em " + host + ":" + port);
+                            "não consegui buscar suas estatísticas em " + host + ":" + port,
+                            credentials.source());
             logger.warn(
                     "falha ao buscar estatísticas em {}:{} (tls={}): {}",
                     host,

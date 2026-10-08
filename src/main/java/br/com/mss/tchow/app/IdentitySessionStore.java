@@ -40,6 +40,17 @@ public interface IdentitySessionStore {
     }
 
     /**
+     * Primeira vez em que este dispositivo viu a conta {@code accountId} como PROVISIONAL
+     * (referência para a carência, BUG-003); vazio se não houver ou se for de outra conta.
+     */
+    default Optional<java.time.Instant> provisionalSince(String accountId) {
+        return Optional.empty();
+    }
+
+    /** Lembra {@link #provisionalSince(String)} (apagado junto com a sessão). */
+    default void rememberProvisionalSince(String accountId, java.time.Instant at) {}
+
+    /**
      * Sessão guardada. {@code state} é o nome do {@code AccountState} ({@code PROVISIONAL}, {@code
      * ACTIVE}, {@code RESTRICTED}).
      */

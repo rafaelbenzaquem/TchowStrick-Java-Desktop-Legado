@@ -504,6 +504,12 @@ public final class GrpcClientTransport implements GameTransport {
     }
 
     private String describe(Throwable cause) {
-        return GrpcErrors.describe(tls, host, port, cause, "não foi possível conectar ao servidor");
+        return GrpcErrors.describe(
+                tls,
+                host,
+                port,
+                cause,
+                "não foi possível conectar ao servidor",
+                accountCredentials.source());
     }
 }

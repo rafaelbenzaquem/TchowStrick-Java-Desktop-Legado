@@ -41,7 +41,20 @@ final class GameCallCredentials implements ClientInterceptor {
                 String token = matchToken.get();
                 if (token != null && !token.isBlank())
                     headers.put(CallIdentity.MATCH_TOKEN_HEADER, token);
-                delegate().start(listener, headers);
+                delegate()
+                        .start(
+                                new ForwardingClientCallListener.SimpleForwardingClientCallListener<
+                                        RespT>(listener) {
+                                    @Override
+                                    public void onClose(Status status, Metadata trailers) {
+                                        // Recusa do servidor por contato não confirmado (BUG-003).
+                                        if (GrpcErrors.isContactRestriction(status)) {
+                                            accountCredentials.accountRestricted();
+                                        }
+                                        super.onClose(status, trailers);
+                                    }
+                                },
+                                headers);
             }
         };
     }
@@ -53,6 +66,7 @@ final class GameCallCredentials implements ClientInterceptor {
                     case PERMISSION_DENIED -> Status.PERMISSION_DENIED;
                     case UNAVAILABLE -> Status.UNAVAILABLE;
                 };
-        return status.withDescription(e.getMessage());
+        // A causa local permite ao GrpcErrors preservar a mensagem (BUG-002).
+        return status.withDescription(e.getMessage()).withCause(e);
     }
 }
