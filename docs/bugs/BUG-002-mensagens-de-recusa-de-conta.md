@@ -2,17 +2,17 @@
 id: BUG-002
 tipo: bug
 titulo: Recusa de conta MSS vira "sessão expirada" genérica e leva a um laço sem saída
-status: corrigido
+status: integrado
 severidade: S2
 prioridade: P0
 depende_de: []
 relacionados: [M1, BUG-003, TchowStrick:M8]
 evidencia: verificado
 branch: fix/mensagens-conta-mss
-integracao: branch
+integracao: "integrado (PR #5, eb10d5c)"
 validacao: pendente
 versao:
-atualizado_em: 2026-10-08
+atualizado_em: 2026-10-09
 ---
 
 # BUG-002 — Recusa de conta MSS mascarada como sessão expirada

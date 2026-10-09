@@ -11,7 +11,7 @@ Cliente em modo legado: os clientes ativos do TchowStrick são os Godot (TchowSt
 
 ## Horizonte
 
-- **Agora:** M0 — validar build e uso do cliente extraído. M1 — identidade MSS no desktop: base integrada em `main` (`e0514f6`); preset oficial com identidade, várias contas por perfis locais e "Gerenciar contas" na branch `feature/preset-oficial-e-multicontas` (05/10/2026), aguardando validação manual.
+- **Agora:** M0 — validar build e uso do cliente extraído. M1 — identidade MSS no desktop: base (`e0514f6`), preset oficial com identidade e várias contas (PR #3) e correções de mensagens e estado da conta (BUG-002/003, PR #5) integrados em `main`; validação manual dos cenários do BUG-002/003 pendente.
 - **Depois:** Outros candidatos dependem de decisão do responsável (ex.: acompanhar mudanças de contrato do servidor).
 - **Mais tarde:** decidir aposentadoria ou manutenção mínima do cliente Swing.
 

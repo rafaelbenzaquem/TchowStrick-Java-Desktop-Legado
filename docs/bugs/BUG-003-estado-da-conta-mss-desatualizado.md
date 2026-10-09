@@ -2,17 +2,17 @@
 id: BUG-003
 tipo: bug
 titulo: Estado da conta MSS desatualizado (provisória/restrita) e aviso de cadastro que afirma envio do código
-status: corrigido
+status: integrado
 severidade: S3
 prioridade: P1
 depende_de: []
 relacionados: [M1, BUG-002]
 evidencia: verificado
 branch: fix/mensagens-conta-mss
-integracao: branch
+integracao: "integrado (PR #5, eb10d5c)"
 validacao: pendente
 versao:
-atualizado_em: 2026-10-06
+atualizado_em: 2026-10-09
 ---
 
 # BUG-003 — Estado da conta MSS desatualizado e envio de código afirmado
