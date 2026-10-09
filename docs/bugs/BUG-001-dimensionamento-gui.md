@@ -9,10 +9,10 @@ depende_de: []
 relacionados: [M1]
 evidencia: verificado
 branch: fix/dimensionamento-gui; ajuste em fix/largura-tela-inicial
-integracao: "integrado (PR #4, e856296); ajuste da largura da tela inicial em fix/largura-tela-inicial"
+integracao: "integrado (PR #4, e856296); ajuste da largura da tela inicial pelo PR #6 (f919144)"
 validacao: "aprovada pelo responsável em 08/10/2026, com a largura da tela inicial aumentada em 200 px"
 versao:
-atualizado_em: 2026-10-08
+atualizado_em: 2026-10-09
 ---
 
 # BUG-001 — Dimensionamento da GUI
