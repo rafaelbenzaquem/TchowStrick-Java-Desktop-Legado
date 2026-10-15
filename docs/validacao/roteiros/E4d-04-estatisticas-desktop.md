@@ -11,7 +11,7 @@ atualizado_em: 2026-10-04
 
 # Roteiro manual — [E4d-04] UI de estatísticas no client-desktop
 
-Movido de `TchowStrick/docs/validacao/roteiros/` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../../TchowStrick/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)). Registro histórico: comandos, caminhos (`client-desktop/`) e revisões citados são do repositório TchowStrick na data da entrega; para executar hoje, ver [operação local](../../operacao/local.md).
+Movido de `mss-tchowstrick-server/docs/validacao/roteiros/` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../../mss-tchowstrick-server/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)). Registro histórico: comandos, caminhos (`client-desktop/`) e revisões citados são do repositório TchowStrick na data da entrega; para executar hoje, ver [operação local](../../operacao/local.md).
 
 Copiado do [modelo comum](../../../../docs/modelos/feature.md). Ver [regras comuns](../../../../AGENTS.md).
 
@@ -29,7 +29,7 @@ Especificação aprovada, requisitos/IDs e critérios de aceite: `[E4d-04]` em
 `docs/issues.md` (achado comparando com o cliente Mobile/Web, que já tinha o
 equivalente).
 
-Pré-requisitos: JDK 17+, Maven (`./mvnw`, raiz do repo `TchowStrick`), Docker
+Pré-requisitos: JDK 17+, Maven (`./mvnw`, raiz do repo `mss-tchowstrick-server`), Docker
 só se for rodar `./mvnw verify` completo (persistência) — não necessário para
 este roteiro, que não toca banco. Duas contas de teste no servidor escolhido
 (local ou oficial), cada uma com pelo meno uma partida encerrada, para ver

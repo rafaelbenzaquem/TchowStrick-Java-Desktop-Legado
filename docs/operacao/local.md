@@ -1,16 +1,16 @@
 # Operação local e arquitetura — TchowStrick Java Desktop (legado)
 
-Conteúdo do cliente extraído de `TchowStrick/docs/operacao/local.md` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../TchowStrick/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)). Servidor, containers, deploy e reidratação continuam documentados na [operação do TchowStrick](../../../TchowStrick/docs/operacao/local.md).
+Conteúdo do cliente extraído de `mss-tchowstrick-server/docs/operacao/local.md` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../mss-tchowstrick-server/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)). Servidor, containers, deploy e reidratação continuam documentados na [operação do TchowStrick](../../../mss-tchowstrick-server/docs/operacao/local.md).
 
-O preset oficial atual declara domínio, porta 443, TLS (segurança da conexão) e, desde 05/10/2026, a identidade MSS de produção `identity.minashonsoftware.com.br:443` com TLS: [servers-default.json](../../src/main/resources/servers-default.json). Exemplos localhost são apenas locais. A referência atual de seleção é a [ADR-0017 do TchowStrick](../../../TchowStrick/docs/adr/0017-lista-de-servidores-e-troca-sem-ip-porta.md). Conferir a interface na validação humana.
+O preset oficial atual declara domínio, porta 443, TLS (segurança da conexão) e, desde 05/10/2026, a identidade MSS de produção `identity.minashonsoftware.com.br:443` com TLS: [servers-default.json](../../src/main/resources/servers-default.json). Exemplos localhost são apenas locais. A referência atual de seleção é a [ADR-0017 do TchowStrick](../../../mss-tchowstrick-server/docs/adr/0017-lista-de-servidores-e-troca-sem-ip-porta.md). Conferir a interface na validação humana.
 
 Comandos a executar na raiz deste repositório, salvo indicação. Builds podem baixar dependências e escrevem no repositório Maven local do usuário; operações que escrevem fora do portfólio exigem registrar impedimento conforme as [regras comuns](../../../AGENTS.md). Operação de produção é exclusiva do responsável autorizado.
 
 ## Requisitos
 
 - JDK 21+ (o código compila com `release 21`).
-- Checkout do [TchowStrick](../../../TchowStrick/README.md) ao lado deste repositório, na versão indicada em [compatibilidade](../compatibilidade.md).
-- `identity-client-java` do [MSSIdentity](../../../MSSIdentity/README.md) instalado no Maven local (desde o [M1](../marcos/M01-identidade-mss.md); ver [compatibilidade](../compatibilidade.md#identidade-mss)).
+- Checkout do [TchowStrick](../../../mss-tchowstrick-server/README.md) ao lado deste repositório, na versão indicada em [compatibilidade](../compatibilidade.md).
+- `identity-client-java` do [MSSIdentity](../../../mss-identity-server/README.md) instalado no Maven local (desde o [M1](../marcos/M01-identidade-mss.md); ver [compatibilidade](../compatibilidade.md#identidade-mss)).
 - Maven (ou o wrapper `./mvnw` incluído).
 - Docker **não** é necessário: os testes deste repositório sobem o servidor em memória, no próprio processo.
 
@@ -62,10 +62,10 @@ Menu `Partida` → `Criar partida…` → em **Adversário** escolha `IA — Fá
 
 ### Jogar em rede
 
-Seleção constatada por leitura de [Main](../../src/main/java/br/com/mss/tchow/Main.java) e [ConnectionResolver](../../src/main/java/br/com/mss/tchow/ConnectionResolver.java), sem executar a interface. A [ADR-0017 do TchowStrick](../../../TchowStrick/docs/adr/0017-lista-de-servidores-e-troca-sem-ip-porta.md) é a referência do fluxo.
+Seleção constatada por leitura de [Main](../../src/main/java/br/com/mss/tchow/Main.java) e [ConnectionResolver](../../src/main/java/br/com/mss/tchow/ConnectionResolver.java), sem executar a interface. A [ADR-0017 do TchowStrick](../../../mss-tchowstrick-server/docs/adr/0017-lista-de-servidores-e-troca-sem-ip-porta.md) é a referência do fluxo.
 
 1. Fora de uma partida, conferir a barra `Servidor` e usar **Trocar servidor…** para escolher o destino. A busca em rede local é acionada no seletor, não automaticamente ao abrir o app.
-2. No servidor oficial, entrar com a conta MSS (`Jogador → Conta MSS…`, [M1](../marcos/M01-identidade-mss.md)); a conta oficial antiga ([SEG-01/02](../../../TchowStrick/docs/referencia/seg-01-02-identidade.md)) não joga mais no oficial. Perfil local não substitui autenticação. Não usar o oficial como staging sem autorização operacional.
+2. No servidor oficial, entrar com a conta MSS (`Jogador → Conta MSS…`, [M1](../marcos/M01-identidade-mss.md)); a conta oficial antiga ([SEG-01/02](../../../mss-tchowstrick-server/docs/referencia/seg-01-02-identidade.md)) não joga mais no oficial. Perfil local não substitui autenticação. Não usar o oficial como staging sem autorização operacional.
 3. Um jogador escolhe `Partida → Criar partida…`, tamanho, quantidade de jogadores (2–5), cor e opção de rede. Host e porta vêm do servidor selecionado, sem campos nos diálogos de partida.
 4. Os demais escolhem `Partida → Entrar…`, buscam a partida e escolhem uma cor disponível, com senha quando houver.
 5. Confirmar o início e o estado da partida conforme o roteiro da entrega; este guia não registra aprovação manual.
@@ -90,8 +90,8 @@ Desde o [M1](../marcos/M01-identidade-mss.md), um servidor pode declarar um dest
 
 Pré-requisitos (dados sintéticos, só local):
 
-1. Serviço de identidade do MSSIdentity em `localhost:9100` (gRPC sem TLS) com o Mailpit do compose local (UI em http://localhost:8025, onde chegam os códigos), conforme a operação local do [MSSIdentity](../../../MSSIdentity/README.md).
-2. `ServerMain` do TchowStrick em `localhost:5050` aceitando o acesso da identidade (modo `remote` ou `hybrid`, audiência `tchowstrick`), conforme a [operação do TchowStrick](../../../TchowStrick/docs/operacao/local.md).
+1. Serviço de identidade do MSSIdentity em `localhost:9100` (gRPC sem TLS) com o Mailpit do compose local (UI em http://localhost:8025, onde chegam os códigos), conforme a operação local do [MSSIdentity](../../../mss-identity-server/README.md).
+2. `ServerMain` do TchowStrick em `localhost:5050` aceitando o acesso da identidade (modo `remote` ou `hybrid`, audiência `tchowstrick`), conforme a [operação do TchowStrick](../../../mss-tchowstrick-server/docs/operacao/local.md).
 
 Executar o cliente (escolha uma forma):
 

@@ -22,12 +22,12 @@ O jogador continua usando o mesmo cliente desktop Swing, agora buildado e execut
 
 ## Escopo
 
-- Incluído: código, testes e recursos de `TchowStrick/client-desktop/` (`main` @ `b5ff8e1`), copiados sem alteração; `pom.xml` autônomo; wrapper Maven; documentação específica do cliente (operação local e arquitetura, roteiro histórico `E4d-04`, descrição anterior da conexão); remoção do módulo e ajuste da documentação no TchowStrick (branch `feature/client-desktop-legado` de lá); inclusão do produto na documentação da raiz do portfólio (branch `docs/produto-java-desktop-legado`).
+- Incluído: código, testes e recursos de `mss-tchowstrick-server/client-desktop/` (`main` @ `b5ff8e1`), copiados sem alteração; `pom.xml` autônomo; wrapper Maven; documentação específica do cliente (operação local e arquitetura, roteiro histórico `E4d-04`, descrição anterior da conexão); remoção do módulo e ajuste da documentação no TchowStrick (branch `feature/client-desktop-legado` de lá); inclusão do produto na documentação da raiz do portfólio (branch `docs/produto-java-desktop-legado`).
 - Fora de escopo: qualquer mudança de comportamento do cliente, do servidor ou do contrato; publicação de versão; criação de remoto para este repositório.
 
 ## Arquitetura e impacto
 
-Decisão e alternativas na [ADR-0020 do TchowStrick](../../../TchowStrick/docs/adr/0020-cliente-desktop-em-repositorio-legado.md). Dependências e versão em [compatibilidade](../compatibilidade.md). Sem mudança de contrato, dados ou operação de produção.
+Decisão e alternativas na [ADR-0020 do TchowStrick](../../../mss-tchowstrick-server/docs/adr/0020-cliente-desktop-em-repositorio-legado.md). Dependências e versão em [compatibilidade](../compatibilidade.md). Sem mudança de contrato, dados ou operação de produção.
 
 ## Riscos
 
