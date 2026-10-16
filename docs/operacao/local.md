@@ -19,14 +19,14 @@ Comandos a executar na raiz deste repositório, salvo indicação. Builds podem 
 1. No TchowStrick, instalar `tchow-domain`, `tchow-proto` e `tchow-server` no repositório Maven local (os testes do servidor exigem Docker; por isso são pulados aqui):
 
    ```bash
-   cd ../TchowStrick
+   cd ../mss-tchowstrick-server
    ./mvnw -q install -DskipTests
    ```
 
 2. No MSSIdentity (branch que contém o módulo `identity-client-java`), instalar o cliente Java da identidade:
 
    ```bash
-   cd ../MSSIdentity
+   cd ../mss-identity-server
    ./mvnw -q install -DskipTests
    ```
 
