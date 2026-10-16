@@ -1,6 +1,6 @@
 # Conexão desktop — descrição anterior
 
-Movido de `TchowStrick/docs/historico/` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../TchowStrick/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)); caminhos `client-desktop/...` abaixo são do repositório de origem, na época. Trecho herdado do README, substituído por [operação atual](../operacao/local.md). Campos de host/porta e descoberta automática abaixo descrevem a interface anterior. Não usar como roteiro vigente.
+Movido de `TchowStrick/docs/historico/` em 04/10/2026 ([ADR-0020 do TchowStrick](../../../mss-tchowstrick-server/docs/adr/0020-cliente-desktop-em-repositorio-legado.md)); caminhos `client-desktop/...` abaixo são do repositório de origem, na época. Trecho herdado do README, substituído por [operação atual](../operacao/local.md). Campos de host/porta e descoberta automática abaixo descrevem a interface anterior. Não usar como roteiro vigente.
 
 ### Jogar em rede
 
@@ -26,7 +26,7 @@ java -jar client-desktop/target/tchowstrick.jar --embedded-server [--port=NNNN]
    jogador que entra) e senha se houver.
 3. A partida começa quando todos os assentos do elenco conectam.
 
-### Servidor sugerido ao cliente: config, CLI e descoberta em LAN ([E4.5](../../../TchowStrick/docs/PLANO.md))
+### Servidor sugerido ao cliente: config, CLI e descoberta em LAN ([E4.5](../../../mss-tchowstrick-server/docs/PLANO.md))
 
 Ao abrir (fora do `--embedded-server`), o cliente resolve sozinho qual
 servidor sugerir — sem pedir host/porta em nenhum diálogo separado — em

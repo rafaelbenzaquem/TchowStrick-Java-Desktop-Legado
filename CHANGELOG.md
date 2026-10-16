@@ -2,7 +2,7 @@
 
 Mudanças relevantes do produto. Formato: [Keep a Changelog 1.1](https://keepachangelog.com/pt-BR/1.1.0/); versões: [SemVer 2.0](https://semver.org/lang/pt-BR/). Cada entrada cita o marco, item, bug ou ADR. Padrão: [documentação MSS](../docs/padroes/documentacao.md) §7.10.
 
-Versões anteriores do cliente desktop foram publicadas junto do servidor, no [CHANGELOG do TchowStrick](../TchowStrick/CHANGELOG.md) (`v1.0.0`…`v1.2.6`); não são repetidas aqui.
+Versões anteriores do cliente desktop foram publicadas junto do servidor, no [CHANGELOG do TchowStrick](../mss-tchowstrick-server/CHANGELOG.md) (`v1.0.0`…`v1.2.6`); não são repetidas aqui.
 
 ## [Não publicado]
 
@@ -10,6 +10,7 @@ Versões anteriores do cliente desktop foram publicadas junto do servidor, no [C
 - O servidor oficial embutido usa a identidade MSS de produção (`identity.minashonsoftware.com.br:443`, TLS): no oficial só há conta MSS; o fluxo de conta oficial antigo (`tchowstrick.auth.v1`) fica para servidores sem identidade. Escolha salva ou `servers.json` que apontem para o oficial sem identidade passam a usar o preset novo (M1).
 
 ### Corrigido
+- Links locais e caminhos de pastas corrigidos após a reorganização do portfólio.
 - Recusas de conta no servidor com identidade MSS deixam de virar "Sessão inválida ou expirada… Criar ou acessar conta…" (que levava ao laço "confirme seu e-mail"): a mensagem local é preservada e cada caso tem a sua ação — entrar na conta MSS, acesso recusado pelo servidor, conta restrita (Confirmar contato), conta antiga não aceita (Conta MSS) e identidade indisponível; o texto antigo fica só para servidores sem identidade (BUG-002).
 - Estado da conta MSS consultado na identidade ao abrir Conta MSS e antes de jogar (contato confirmado, carência de 1 h), recusa por contato vinda do servidor marca a conta como restrita e oferece "Confirmar contato"; "Gerenciar contas" indica "último estado conhecido"; o aviso de cadastro e o reenvio não afirmam mais que o código foi enviado (BUG-003).
 - Janela principal mais larga na tela inicial (+200 px na largura preferida do `SplashPanel`), ajuste do responsável na validação do BUG-001, aprovada em 08/10/2026.

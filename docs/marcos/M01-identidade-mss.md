@@ -14,7 +14,7 @@ atualizado_em: 2026-10-06
 
 # M1 — Identidade MSS no desktop
 
-Lado cliente do [M4 do MSSIdentity](../../../MSSIdentity/docs/marcos/M04-integracao-tchowstrick.md) (item **M4-04**). Especificação, critério de pronto e **status do item ficam naquele marco** (fonte única); aqui ficam o registro de desenvolvimento e as verificações deste repositório. O lado servidor (M4-01 a M4-03) está no [M8 do TchowStrick](../../../TchowStrick/docs/marcos/M08-identidade-mss.md).
+Lado cliente do [M4 do MSSIdentity](../../../mss-identity-server/docs/marcos/M04-integracao-tchowstrick.md) (item **M4-04**). Especificação, critério de pronto e **status do item ficam naquele marco** (fonte única); aqui ficam o registro de desenvolvimento e as verificações deste repositório. O lado servidor (M4-01 a M4-03) está no [M8 do TchowStrick](../../../mss-tchowstrick-server/docs/marcos/M08-identidade-mss.md).
 
 ## Resultado para o usuário
 
